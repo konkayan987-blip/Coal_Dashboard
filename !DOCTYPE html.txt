@@ -3,588 +3,749 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glue Usage & Cost Analytics</title>
-    
+    <title>Coal Usage Analytics</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Flatpickr (ปฏิทิน) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
+    <!-- PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Sarabun:wght@300;400;600;700&display=swap');
-        
-        body {
-            font-family: 'Inter', 'Sarabun', sans-serif;
-            background-color: #0f172a; /* Slate 900 */
+        body { 
+            font-family: 'Prompt', sans-serif; 
+            background-color: #0f172a; /* Dark Navy Background */
             color: #f8fafc;
+            min-height: 100vh;
+        }
+        
+        /* สไตล์กล่องข้อมูล (Panel) */
+        .panel {
+            background-color: #1e293b; 
+            border: 1px solid #334155;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         }
 
+        /* เอฟเฟกต์ข้อความไล่สี */
+        .text-gradient-cyan {
+            background: linear-gradient(to right, #2dd4bf, #0ea5e9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Input สไตล์ Dark Mode (Date Picker) */
+        .dark-input {
+            background-color: #0f172a;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            border-radius: 6px;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            outline: none;
+            cursor: pointer;
+        }
+        .dark-input:focus {
+            border-color: #2dd4bf;
+        }
+        /* เปลี่ยนสีไอคอนปฏิทินในช่องวันที่ให้มองเห็นในธีมมืด */
+        ::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        .chart-container { position: relative; height: 320px; width: 100%; }
+        
+        /* Scrollbar สำหรับธีมมืด */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-
-        .glass-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        
+        /* Loading Screen ธีมมืด */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.9); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            backdrop-filter: blur(4px);
         }
-
-        .kpi-value { font-size: 1.5rem; font-weight: 700; }
-        @media (min-width: 1024px) { .kpi-value { font-size: 1.75rem; } }
-        .kpi-label { font-size: 0.875rem; color: #94a3b8; font-weight: 500; }
-        .kpi-sub { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body class="p-4 md:p-6 lg:p-8">
 
-    <div class="max-w-[1400px] mx-auto space-y-6">
-        
-        <!-- Header & Filter -->
-        <header class="glass-card rounded-2xl p-6 flex flex-col xl:flex-row justify-between items-center gap-4 border-l-4 border-l-emerald-500">
-            <div>
-                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400">
-                    🛢️ Glue Usage Analytics
-                </h1>
-                <p class="text-slate-400 text-sm mt-1">แดชบอร์ดวิเคราะห์ปริมาณการใช้กาวและต้นทุน แยกรายเครื่อง</p>
-            </div>
-            
-            <!-- Date Filter -->
-            <div class="flex flex-wrap items-center gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-slate-300">ตั้งแต่:</label>
-                    <input type="text" id="startDate" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500 text-white w-28 text-center placeholder-slate-400">
-                </div>
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-slate-300">ถึง:</label>
-                    <input type="text" id="endDate" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500 text-white w-28 text-center placeholder-slate-400">
-                </div>
-                <button onclick="applyFilter()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-200 shadow-lg shadow-emerald-500/30">
-                    🔍 กรองข้อมูล
-                </button>
-                <button onclick="resetFilter()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-200">
-                    รีเซ็ต
-                </button>
-                <button onclick="loadData()" id="refreshBtn" class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-200 shadow-lg shadow-teal-500/30 flex items-center gap-2">
-                    <i class="fa-solid fa-arrows-rotate"></i> อัปเดตข้อมูล
-                </button>
-            </div>
-        </header>
-
-        <!-- KPI Summary Cards (7 Cards) -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
-                <div class="absolute top-4 right-4 text-emerald-400 opacity-20"><i class="fa-solid fa-flask text-3xl"></i></div>
-                <div class="kpi-label">ปริมาณกาวที่ใช้รวม</div>
-                <div id="kpiTotalUsage" class="kpi-value text-emerald-400 mt-2">--</div>
-                <div class="kpi-sub">หน่วย: กิโลกรัม (kg)</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
-                <div class="absolute top-4 right-4 text-rose-400 opacity-20"><i class="fa-solid fa-money-bill-wave text-3xl"></i></div>
-                <div class="kpi-label">ต้นทุนค่ากาวรวม</div>
-                <div id="kpiTotalCost" class="kpi-value text-rose-400 mt-2">--</div>
-                <div class="kpi-sub">หน่วย: บาท (Baht)</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
-                <div class="absolute top-4 right-4 text-blue-400 opacity-20"><i class="fa-solid fa-box-open text-3xl"></i></div>
-                <div class="kpi-label">ยอดผลิตรวม (Output)</div>
-                <div id="kpiTotalOutput" class="kpi-value text-blue-400 mt-2">--</div>
-                <div class="kpi-sub">หน่วย: Output / ชิ้น</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
-                <div class="absolute top-4 right-4 text-amber-400 opacity-20"><i class="fa-solid fa-chart-pie text-3xl"></i></div>
-                <div class="kpi-label">เฉลี่ย ต้นทุน ฿ / Output</div>
-                <div id="kpiAvgRatio" class="kpi-value text-amber-400 mt-2">--</div>
-                <div class="kpi-sub">ค่ากาวต่อหน่วยผลิต</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden border-b-2 border-b-purple-500/50">
-                <div class="absolute top-4 right-4 text-purple-400 opacity-20"><i class="fa-solid fa-layer-group text-3xl"></i></div>
-                <div class="kpi-label">เฉลี่ย กรัม / ตรม.</div>
-                <div id="kpiGramSqm" class="kpi-value text-purple-400 mt-2">--</div>
-                <div class="kpi-sub">g/Sqm (น้อย=ดี)</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden border-b-2 border-b-pink-500/50">
-                <div class="absolute top-4 right-4 text-pink-400 opacity-20"><i class="fa-solid fa-weight-scale text-3xl"></i></div>
-                <div class="kpi-label">เฉลี่ย กรัม / Output</div>
-                <div id="kpiGramOutput" class="kpi-value text-pink-400 mt-2">--</div>
-                <div class="kpi-sub">g/Output (น้อย=ดี)</div>
-            </div>
-            
-            <!-- การ์ดใหม่: เปอร์เซ็นต์คุณภาพกาว -->
-            <div class="glass-card rounded-2xl p-5 relative overflow-hidden border-b-2 border-b-violet-500/50">
-                <div class="absolute top-4 right-4 text-violet-400 opacity-20"><i class="fa-solid fa-percent text-3xl"></i></div>
-                <div class="kpi-label">เปอร์เซ็นต์คุณภาพกาว</div>
-                <div id="kpiQuality" class="kpi-value text-violet-400 mt-2">--</div>
-                <div class="kpi-sub">% คุณภาพเฉลี่ย</div>
-            </div>
+    <!-- หน้าต่างโหลดข้อมูล -->
+    <div id="loading-overlay">
+        <div class="relative w-16 h-16">
+            <div class="absolute top-0 left-0 w-full h-full border-4 border-slate-700 rounded-full"></div>
+            <div class="absolute top-0 left-0 w-full h-full border-4 border-teal-400 rounded-full border-t-transparent animate-spin"></div>
         </div>
-
-        <!-- Charts Row 1: Bar Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card rounded-2xl p-6 border-t-2 border-emerald-500/50">
-                <h3 class="text-lg font-semibold mb-4 text-emerald-300">📊 ปริมาณกาวที่ใช้ (kg)</h3>
-                <div class="w-full h-[250px]"><canvas id="barUsage"></canvas></div>
-            </div>
-            <div class="glass-card rounded-2xl p-6 border-t-2 border-rose-500/50">
-                <h3 class="text-lg font-semibold mb-4 text-rose-300">💰 ต้นทุนค่ากาว (Baht)</h3>
-                <div class="w-full h-[250px]"><canvas id="barCost"></canvas></div>
-            </div>
-            <div class="glass-card rounded-2xl p-6 border-t-2 border-purple-500/50">
-                <h3 class="text-lg font-semibold mb-4 text-purple-300">📐 กรัม / ตรม. (g/Sqm)</h3>
-                <div class="w-full h-[250px]"><canvas id="barGramSqm"></canvas></div>
-            </div>
-        </div>
-
-        <!-- Charts Row 2: Trend Lines -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card rounded-2xl p-6">
-                <h3 class="text-lg font-semibold mb-4 text-amber-300">📉 แนวโน้มความคุ้มค่า (฿ / Output)</h3>
-                <div class="w-full h-[250px]"><canvas id="trendRatio"></canvas></div>
-            </div>
-            <div class="glass-card rounded-2xl p-6">
-                <h3 class="text-lg font-semibold mb-4 text-purple-300">📉 แนวโน้ม กรัม / ตรม. (g/Sqm)</h3>
-                <div class="w-full h-[250px]"><canvas id="trendGramSqm"></canvas></div>
-            </div>
-            <div class="glass-card rounded-2xl p-6">
-                <h3 class="text-lg font-semibold mb-4 text-pink-300">📉 แนวโน้ม กรัม / Output</h3>
-                <div class="w-full h-[250px]"><canvas id="trendGramOutput"></canvas></div>
-            </div>
-        </div>
-        
-        <!-- Charts Row 3: Quality Trend (เพิ่มกราฟใหม่) -->
-        <div class="grid grid-cols-1 lg:grid-cols-1 gap-6">
-            <div class="glass-card rounded-2xl p-6">
-                <h3 class="text-lg font-semibold mb-4 text-violet-300">🧪 แนวโน้มเปอร์เซ็นต์คุณภาพกาว (%)</h3>
-                <div class="w-full h-[250px]"><canvas id="trendQuality"></canvas></div>
-            </div>
-        </div>
-
+        <h2 class="text-xl font-bold text-slate-200 mt-6 tracking-wide">กำลังเชื่อมต่อข้อมูล...</h2>
+        <p class="text-slate-400 mt-2 text-sm text-center">กำลังดึงข้อมูลล่าสุดจาก Google Sheet</p>
     </div>
 
-<script>
-    // URL ของไฟล์กาว (มี &gid=483689587 ถูกต้องแล้ว)
-    const sheetUrl = "https://docs.google.com/spreadsheets/d/1B9zHhiB0lknlC94yd7r6hV_Wzn7xlnqvT1cx6aidoSQ/export?format=csv&gid=483689587";
-
-    let allData = [];
-    let filteredData = [];
-    let charts = {};
-
-    const colors = {
-        iso: { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.6)' },   // Rose (ISOWA)
-        bhs: { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.6)' },  // Blue (BHS)
-        yue: { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.6)' }   // Amber (YUELI)
-    };
-
-    // ตั้งค่า Flatpickr ทันที (ไม่ต้องรอตัวแปร)
-    flatpickr("#startDate", { dateFormat: "Y-m-d", altInput: true, altFormat: "d/m/Y" });
-    flatpickr("#endDate", { dateFormat: "Y-m-d", altInput: true, altFormat: "d/m/Y" });
-
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.font.family = "'Inter', 'Sarabun', sans-serif";
-
-    const parseNum = (val) => parseFloat(val?.replace(/,/g, "")) || 0;
-
-    // ระบบอ่านวันที่ที่ฉลาดขึ้นและรองรับปี พ.ศ. (กันเบราว์เซอร์อ่านพลาด)
-    function parseDateString(dateStr) {
-        if (!dateStr) return 0;
-        const cleanStr = dateStr.replace(/\uFEFF/g, '').replace(/"/g, '').trim().split(' ')[0];
+    <!-- 🌟 ปุ่มลอยสำหรับแคปหน้าจอ (มุมขวาล่าง) 🌟 -->
+    <button onclick="downloadDashboard(event)" class="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all duration-300 hover:scale-110 z-50 group flex items-center justify-center cursor-pointer border border-indigo-400/30" title="บันทึกรูปภาพแดชบอร์ด">
+        <!-- ไอคอนกล้องถ่ายรูป -->
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         
-        // แยกด้วย / เพื่อจัดการฟอร์แมต วัน/เดือน/ปี
-        const parts = cleanStr.split('/');
-        if (parts.length === 3) {
-            const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1; // JS เดือนเริ่มที่ 0
-            let year = parseInt(parts[2].substring(0, 4), 10);
+        <!-- Tooltip ข้อความ (จะแสดงเมื่อเอาเมาส์ชี้) -->
+        <span class="absolute right-full mr-4 whitespace-nowrap bg-slate-800 text-slate-100 text-sm px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-600 shadow-xl font-medium flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            แคปหน้าจอภาพรวม
+        </span>
+    </button>
+
+    <div class="max-w-[1400px] mx-auto space-y-6 hidden" id="main-content">
+        
+        <!-- Header & Filters แบบใหม่ (Date Range) -->
+        <div class="panel p-4 lg:p-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 border-l-4 border-l-teal-400">
+            <div class="flex items-center gap-4">
+                <div class="p-2 bg-slate-800 rounded-lg border border-slate-700">
+                    <svg class="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gradient-cyan tracking-wide">Coal Usage Analytics</h1>
+                    <p class="text-slate-400 text-xs mt-1">แดชบอร์ดวิเคราะห์ปริมาณการใช้ถ่านหินและต้นทุน แยกรายเครื่อง</p>
+                </div>
+            </div>
             
-            if (year > 2500) year -= 543; // เผื่อพิมพ์เป็นปี พ.ศ. มาให้แปลงเป็น ค.ศ.
-            
-            return new Date(year, month, day).getTime(); // สร้าง Timestamp วันที่แบบแม่นยำ
-        }
-        
-        // ถ้าไม่ใช่ / ลองให้เบราว์เซอร์แปลง
-        let d = new Date(cleanStr);
-        if (!isNaN(d.getTime())) return d.getTime();
-        
-        return 0;
-    }
-
-    function loadData() {
-        const refreshBtn = document.getElementById('refreshBtn');
-        if (refreshBtn) {
-            refreshBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> กำลังโหลด...';
-            refreshBtn.disabled = true;
-        }
-
-        allData = [];
-
-        fetch(sheetUrl)
-            .then(res => res.text())
-            .then(csv => {
-                // 🚨 เช็คว่าไฟล์ถูกปิดกั้นการเข้าถึงหรือไม่
-                if (csv.toLowerCase().includes("<html") || csv.toLowerCase().includes("sign in")) {
-                    alert("🚨 ระบบถูกบล็อก ไม่สามารถเข้าถึงข้อมูลได้!\n\nกรุณากลับไปที่หน้า Google Sheets แล้วตั้งค่า แชร์ (Share) มุมขวาบน เป็น 'ทุกคนที่มีลิงก์' (Anyone with the link) ก่อนครับ");
-                    resetBtnState();
-                    return;
-                }
-
-                const rows = csv.trim().split("\n");
-                if (rows.length < 2) return;
-
-                // 🌟 ระบบค้นหาคอลัมน์อัตโนมัติ
-                let header = rows[0].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/"/g, '').trim().toLowerCase());
-                let getIdx = (k1, k2, defaultIdx) => {
-                    let idx = header.findIndex(x => x.includes(k1) && (x.includes(k2) || x.includes('isowa')));
-                    return idx !== -1 ? idx : defaultIdx;
-                };
-
-                let col = {
-                    yue_u: getIdx('ปริมาณ', 'yue', 4),
-                    yue_c: getIdx('ค่ากาว', 'yue', 5),
-                    yue_o: getIdx('output', 'yue', 6),
-                    yue_sqm: getIdx('sqm', 'yue', -1), 
-                    
-                    bhs_u: getIdx('ปริมาณ', 'bhs', 10),
-                    bhs_c: getIdx('ค่ากาว', 'bhs', 11),
-                    bhs_o: getIdx('output', 'bhs', 12),
-                    bhs_sqm: getIdx('sqm', 'bhs', -1), 
-                    
-                    iso_u: getIdx('ปริมาณ', 'iso', 15),
-                    iso_c: getIdx('ค่ากาว', 'iso', 16),
-                    iso_o: getIdx('output', 'iso', 17),
-                    iso_sqm: getIdx('sqm', 'iso', -1),
-                    
-                    // ค้นหาคอลัมน์เปอร์เซ็นต์คุณภาพกาวจากชื่อ
-                    quality: header.findIndex(x => x.includes('คุณภาพ') || x.includes('%') || x.includes('solid') || x.includes('เปอร์เซ็นต์'))
-                };
+            <!-- แถบกรองวันที่และปุ่มควบคุม -->
+            <div class="flex flex-wrap items-center gap-3 bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50 w-full xl:w-auto">
+                <!-- Dropdown สำหรับเลือกช่วงเวลาด่วน -->
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 text-sm font-medium px-1">ดูด่วน:</span>
+                    <select id="quick-month" class="dark-input" onchange="applyQuickMonth()">
+                        <option value="">-- ระบุช่วงวันเอง --</option>
+                    </select>
+                </div>
                 
-                rows.forEach((r, idx) => {
-                    if(idx === 0) return; 
-                    
-                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/"/g, '').trim());
-                    if (c.length < 5 || !c[0] || c[0].toLowerCase().includes('total') || c[0] === '') return;
+                <div class="w-px h-6 bg-slate-700 mx-1 hidden sm:block"></div>
+                
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 text-sm font-medium px-1">ตั้งแต่:</span>
+                    <input type="date" id="start-date" class="dark-input" onchange="clearQuickMonth()">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 text-sm font-medium px-1">ถึง:</span>
+                    <input type="date" id="end-date" class="dark-input" onchange="clearQuickMonth()">
+                </div>
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 ml-auto xl:ml-2">
+                    <button onclick="applyFilters()" class="flex-1 sm:flex-none bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                        กรองข้อมูล
+                    </button>
+                    <button onclick="resetFilters()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-4 py-2 rounded transition-colors">
+                        รีเซ็ต
+                    </button>
+                    <!-- ปุ่มอัปเดตข้อมูลใหม่ -->
+                    <button onclick="loadData()" class="flex-1 sm:flex-none bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        อัปเดตข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
 
-                    const ts = parseDateString(c[0]);
-                    if (!ts) return; 
+        <!-- Top KPI Summary (5 กล่อง) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <!-- Output (Green) -->
+            <div class="panel p-5 border border-emerald-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ยอดผลิตรวม (Output)</p>
+                        <p class="text-3xl font-bold text-emerald-400" id="kpi-output">0</p>
+                        <p class="text-xs text-slate-500 mt-1">หน่วย: ตัน (Ton)</p>
+                    </div>
+                    <div class="p-2 bg-emerald-500/10 rounded border border-emerald-500/20">
+                        <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cost (Pink/Rose) -->
+            <div class="panel p-5 border border-rose-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ต้นทุนค่าถ่านหินรวม</p>
+                        <p class="text-3xl font-bold text-rose-400" id="kpi-cost">0</p>
+                        <p class="text-xs text-slate-500 mt-1">หน่วย: บาท (Baht)</p>
+                    </div>
+                    <div class="p-2 bg-rose-500/10 rounded border border-rose-500/20">
+                        <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                </div>
+            </div>
 
-                    const dObj = new Date(ts);
-                    const formattedDate = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}/${dObj.getFullYear()}`;
+            <!-- Baht / Output (Yellow/Amber) -->
+            <div class="panel p-5 border border-amber-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">เฉลี่ย ต้นทุน ฿ / Output</p>
+                        <p class="text-3xl font-bold text-amber-400 flex items-baseline gap-1">
+                            <span class="text-xl">฿</span> <span id="kpi-baht-output">0.000</span>
+                        </p>
+                        <p class="text-xs text-slate-500 mt-1">ต้นทุนต่อหน่วยผลิต</p>
+                    </div>
+                    <div class="p-2 bg-amber-500/10 rounded border border-amber-500/20">
+                        <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    </div>
+                </div>
+            </div>
 
-                    allData.push({
-                        dateStr: formattedDate, timestamp: ts,
-                        yue_usage: parseNum(c[col.yue_u]), yue_cost: parseNum(c[col.yue_c]), yue_out: parseNum(c[col.yue_o]), yue_sqm: col.yue_sqm !== -1 ? parseNum(c[col.yue_sqm]) : 0,
-                        bhs_usage: parseNum(c[col.bhs_u]), bhs_cost: parseNum(c[col.bhs_c]), bhs_out: parseNum(c[col.bhs_o]), bhs_sqm: col.bhs_sqm !== -1 ? parseNum(c[col.bhs_sqm]) : 0,
-                        iso_usage: parseNum(c[col.iso_u]), iso_cost: parseNum(c[col.iso_c]), iso_out: parseNum(c[col.iso_o]), iso_sqm: col.iso_sqm !== -1 ? parseNum(c[col.iso_sqm]) : 0,
-                        quality: col.quality !== -1 ? parseNum(c[col.quality]) : 0
+            <!-- Average Coal Price (Indigo) -->
+            <div class="panel p-5 border border-indigo-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ราคาถ่านหินเฉลี่ย</p>
+                        <p class="text-3xl font-bold text-indigo-400 flex items-baseline gap-1">
+                            <span class="text-xl">฿</span> <span id="kpi-avg-coal-price">0.00</span>
+                        </p>
+                        <p class="text-xs text-slate-500 mt-1">เฉลี่ยในช่วงเวลาที่เลือก</p>
+                    </div>
+                    <div class="p-2 bg-indigo-500/10 rounded border border-indigo-500/20">
+                        <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Average Coal/Water (Purple) -->
+            <div class="panel p-5 border border-purple-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">เฉลี่ย ถ่านต่อไอน้ำ</p>
+                        <p class="text-3xl font-bold text-purple-400" id="kpi-avg-coal-water">0.00</p>
+                        <p class="text-xs text-slate-500 mt-1">เป้าหมาย (Target): 208</p>
+                    </div>
+                    <div class="p-2 bg-purple-500/10 rounded border border-purple-500/20">
+                        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Steam KPI (Target 302) -->
+        <div class="panel p-5 border-t-2 border-t-slate-600">
+            <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                เฉลี่ย ไอน้ำต่อการผลิต (เป้าหมาย 302 ml/kg Output)
+            </h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div id="kpi-steam-total-card" class="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p class="text-xs text-slate-400 mb-1">ภาพรวม (Total)</p>
+                    <p class="text-2xl font-bold text-slate-200" id="kpi-steam-total">-</p>
+                    <p class="text-xs mt-1" id="kpi-steam-total-diff"></p>
+                </div>
+                <div id="kpi-steam-isowa-card" class="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p class="text-xs text-slate-400 mb-1">ISOWA</p>
+                    <p class="text-2xl font-bold text-slate-200" id="kpi-steam-isowa">-</p>
+                    <p class="text-xs mt-1" id="kpi-steam-isowa-diff"></p>
+                </div>
+                <div id="kpi-steam-bhs-card" class="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p class="text-xs text-slate-400 mb-1">BHS</p>
+                    <p class="text-2xl font-bold text-slate-200" id="kpi-steam-bhs">-</p>
+                    <p class="text-xs mt-1" id="kpi-steam-bhs-diff"></p>
+                </div>
+                <div id="kpi-steam-yueli-card" class="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                    <p class="text-xs text-slate-400 mb-1">YUELI</p>
+                    <p class="text-2xl font-bold text-slate-200" id="kpi-steam-yueli">-</p>
+                    <p class="text-xs mt-1" id="kpi-steam-yueli-diff"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- กราฟวิเคราะห์ (Charts Grid) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div class="panel p-5 border-t-2 border-t-teal-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartSteam"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-t-rose-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> 2. ต้นทุนถ่านหินภาพรวม (Baht)
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartCost"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-t-purple-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน & เฉลี่ยรายเดือน) Target 208
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartCoalWater"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-t-amber-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> 4. การใช้ราคา บาท/Output (แยกเครื่อง)
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartBahtOutput"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-t-indigo-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน)
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartCoalPrice"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-t-emerald-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (ตัน/วัน)
+                    </h2>
+                </div>
+                <div class="chart-container"><canvas id="chartOutput"></canvas></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // ⚙️ การตั้งค่า: จับคู่ชื่อคอลัมน์ (Column Mapping)
+        // =========================================================================
+        const COLUMN_MAP = {
+            date: "วันที่", 
+            steam_total: "ไอน้ำต่อผลิตรวม", 
+            steam_isowa: "ไอน้ำต่อผลิต ISOWA (ML)",
+            steam_bhs: "ไอน้ำต่อผลิต BHS (ML)",
+            steam_yueli: "ไอน้ำต่อผลิต YUELI(ML)", 
+            coal_cost_total: "Baht Total",
+            cw_total: "ถ่านต่อไอน้ำBHS", 
+            cw_isowa: "ถ่านต่อไอน้ำ ISOWA",
+            cw_bhs: "ถ่านต่อไอน้ำBHS",
+            cw_yueli: "ถ่านต่อไอน้ำYUELI",
+            bo_total: "Baht/Output Total",
+            bo_isowa: "บาทต่อ Output ISOWA",
+            bo_bhs: "บาทต่อOUTPUT BHS",
+            bo_yueli: "บาทต่อOUTPUT YUELI",
+            coal_price: "ราคาถ่านหิน", 
+            output_total: "Output Total",  
+            output_isowa: "Output ISOWA",  
+            output_bhs: "Output BHS",      
+            output_yueli: "Output YUELI"   
+        };
+
+        const SHEET_ID = '1qS-AaBlEmWWlRaCV7_ESLCzBbB0JGVfKCBXrB8PpdCs';
+        const GID = '48785430'; 
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+
+        let rawData = [];
+        let currentData = [];
+        const chartInstances = {};
+
+        // 🎨 ชุดสี Neon สำหรับ Dark Theme
+        const THEME = {
+            isowa:  { border: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.2)', solid: '#0ea5e9' }, // Cyan/Sky Blue
+            bhs:    { border: '#a855f7', bg: 'rgba(168, 85, 247, 0.2)', solid: '#a855f7' }, // Purple
+            yueli:  { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)', solid: '#facc15' }, // Yellow
+            total:  { border: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.1)', solid: '#2dd4bf' }, // Teal
+            target: { border: '#f43f5e', bg: 'transparent', solid: '#f43f5e' },             // Rose (Red)
+            cost:   { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.2)',  solid: '#f43f5e' }, // Rose
+            price:  { border: '#6366f1', bg: 'rgba(99, 102, 241, 0.2)', solid: '#6366f1' }  // Indigo
+        };
+
+        // ฟังก์ชันอ่านข้อมูลอัจฉริยะ (ช่วยจัดการค่า Error อย่าง #DIV/0!)
+        const parseNum = (val) => {
+            if (val === undefined || val === null || val === '') return null;
+            if (typeof val === 'number') return val;
+            
+            const strVal = val.toString().trim().toUpperCase();
+            if (strVal.includes('#DIV/0!') || strVal.includes('#REF!') || strVal.includes('#VALUE!') || strVal.includes('#N/A')) {
+                return null;
+            }
+
+            const parsed = parseFloat(strVal.replace(/,/g, '').replace(/[^0-9.-]+/g,""));
+            return isNaN(parsed) ? null : parsed;
+        };
+
+        const extractCol = (row, exactName) => {
+            if (row[exactName] !== undefined) return parseNum(row[exactName]);
+            const normalizedTarget = exactName.replace(/\s+/g, '').toLowerCase();
+            const matchedKey = Object.keys(row).find(k => k.replace(/\s+/g, '').toLowerCase() === normalizedTarget);
+            return matchedKey ? parseNum(row[matchedKey]) : null;
+        };
+
+        const parseDate = (dateStr) => {
+            if (!dateStr) return new Date();
+            const parts = dateStr.split(/[-/]/);
+            if (parts.length === 3) {
+                let day = parseInt(parts[0], 10);
+                let month = parseInt(parts[1], 10) - 1;
+                let year = parseInt(parts[2], 10);
+                if (year > 2500) year -= 543;
+                if (parts[0].length === 4) { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+                return new Date(year, month, day);
+            }
+            return new Date(dateStr);
+        };
+
+        const formatDateToYYYYMMDD = (d) => {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        const monthNamesThai = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+        // ฟังก์ชันสร้างตัวเลือกด่วน (เดือน และ ทั้งปี)
+        function populateQuickMonth() {
+            const select = document.getElementById('quick-month');
+            select.innerHTML = '<option value="">-- ระบุช่วงวันเอง --</option>';
+            
+            const years = new Set();
+            const yearMonths = new Set();
+            
+            rawData.forEach(d => {
+                const y = d.dateObj.getFullYear();
+                const m = String(d.dateObj.getMonth() + 1).padStart(2, '0');
+                years.add(y);
+                yearMonths.add(`${y}-${m}`);
+            });
+
+            // เรียงลำดับปีจากใหม่ไปเก่า
+            Array.from(years).sort((a,b) => b-a).forEach(y => {
+                // เพิ่มตัวเลือก "ทั้งปี"
+                const yearOption = new Option(`ทั้งปี ${y}`, `Y:${y}`);
+                yearOption.classList.add('font-bold', 'text-teal-400');
+                select.add(yearOption);
+                
+                // เพิ่มตัวเลือกรายเดือนของปีนั้นๆ
+                Array.from(yearMonths)
+                    .filter(ym => ym.startsWith(y))
+                    .sort()
+                    .forEach(ym => {
+                        const [year, month] = ym.split('-');
+                        const monthName = monthNamesThai[parseInt(month) - 1];
+                        select.add(new Option(`  └ ${monthName} ${year}`, `M:${ym}`));
                     });
-                });
+            });
+        }
 
-                if (allData.length === 0) {
-                    alert("⚠️ อ่านไฟล์ได้สำเร็จ แต่หาข้อมูลกาวไม่เจอเลยครับ!");
-                    resetBtnState();
+        function applyQuickMonth() {
+            const val = document.getElementById('quick-month').value;
+            if (!val) return;
+
+            const [type, data] = val.split(':');
+            let startDate, endDate;
+
+            if (type === 'Y') {
+                // เลือกทั้งปี
+                startDate = new Date(data, 0, 1);
+                endDate = new Date(data, 11, 31);
+            } else {
+                // เลือกรายเดือน
+                const [year, month] = data.split('-');
+                startDate = new Date(year, month - 1, 1);
+                endDate = new Date(year, month, 0);
+            }
+
+            document.getElementById('start-date').value = formatDateToYYYYMMDD(startDate);
+            document.getElementById('end-date').value = formatDateToYYYYMMDD(endDate);
+            
+            applyFilters();
+        }
+
+        function clearQuickMonth() {
+            document.getElementById('quick-month').value = '';
+        }
+
+        function loadData() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+            const noCacheUrl = csvUrl + "&t=" + new Date().getTime();
+
+            Papa.parse(noCacheUrl, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data.length === 0) {
+                        alert("ไม่พบข้อมูล โปรดตรวจสอบการแชร์ไฟล์ Google Sheet");
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        return;
+                    }
+
+                    rawData = results.data.map(row => {
+                        const dObj = parseDate(row[COLUMN_MAP.date]);
+                        
+                        let steam_i = extractCol(row, COLUMN_MAP.steam_isowa);
+                        let steam_b = extractCol(row, COLUMN_MAP.steam_bhs);
+                        let steam_y = extractCol(row, COLUMN_MAP.steam_yueli);
+                        let steam_t = extractCol(row, COLUMN_MAP.steam_total);
+                        if(steam_t === null) {
+                            let valid = [steam_i, steam_b, steam_y].filter(v => v !== null && v > 0);
+                            steam_t = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+                        }
+
+                        let cw_i = extractCol(row, COLUMN_MAP.cw_isowa);
+                        let cw_b = extractCol(row, COLUMN_MAP.cw_bhs);
+                        let cw_y = extractCol(row, COLUMN_MAP.cw_yueli);
+                        let cw_t = extractCol(row, COLUMN_MAP.cw_total);
+
+                        return {
+                            dateObj: dObj,
+                            dateStr: `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}/${dObj.getFullYear()}`,
+                            year: dObj.getFullYear(),
+                            month: dObj.getMonth() + 1,
+                            timeValue: dObj.getTime(),
+                            steam_total: steam_t, steam_isowa: steam_i, steam_bhs: steam_b, steam_yueli: steam_y,
+                            coal_cost_total: extractCol(row, COLUMN_MAP.coal_cost_total),
+                            cw_total: cw_t, cw_isowa: cw_i, cw_bhs: cw_b, cw_yueli: cw_y,
+                            bo_total: extractCol(row, COLUMN_MAP.bo_total), bo_isowa: extractCol(row, COLUMN_MAP.bo_isowa), bo_bhs: extractCol(row, COLUMN_MAP.bo_bhs), bo_yueli: extractCol(row, COLUMN_MAP.bo_yueli),
+                            coal_price: extractCol(row, COLUMN_MAP.coal_price),
+                            output_total: extractCol(row, COLUMN_MAP.output_total), output_isowa: extractCol(row, COLUMN_MAP.output_isowa), output_bhs: extractCol(row, COLUMN_MAP.output_bhs), output_yueli: extractCol(row, COLUMN_MAP.output_yueli)
+                        };
+                    }).sort((a, b) => a.timeValue - b.timeValue);
+
+                    currentData = [...rawData];
+                    populateQuickMonth();
+                    
+                    if(rawData.length > 0) {
+                        const minDate = formatDateToYYYYMMDD(rawData[0].dateObj);
+                        const maxDate = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
+                        const startInput = document.getElementById('start-date');
+                        const endInput = document.getElementById('end-date');
+                        if (startInput && !startInput.value) startInput.value = minDate;
+                        if (endInput && !endInput.value) endInput.value = maxDate;
+                    }
+
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    document.getElementById('main-content').classList.remove('hidden');
+                    updateDashboard();
+                }
+            });
+        }
+
+        function applyFilters() {
+            const startStr = document.getElementById('start-date').value;
+            const endStr = document.getElementById('end-date').value;
+            if (!startStr || !endStr) return;
+
+            const startTime = new Date(startStr).setHours(0,0,0,0);
+            const endTime = new Date(endStr).setHours(23, 59, 59, 999); 
+
+            currentData = rawData.filter(item => {
+                return item.timeValue >= startTime && item.timeValue <= endTime;
+            });
+            updateDashboard();
+        }
+
+        function resetFilters() {
+            clearQuickMonth();
+            if(rawData.length > 0) {
+                document.getElementById('start-date').value = formatDateToYYYYMMDD(rawData[0].dateObj);
+                document.getElementById('end-date').value = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
+            }
+            applyFilters();
+        }
+
+        // =========================================================================
+        // 📸 ฟังก์ชันสำหรับแคปทั้งหน้าจอแดชบอร์ด (ทำงานเมื่อกดปุ่มลอยมุมขวาล่าง)
+        // =========================================================================
+        function downloadDashboard(event) {
+            const btn = event.currentTarget;
+            const originalContent = btn.innerHTML;
+            
+            // แสดงสถานะกำลังโหลดที่ปุ่ม
+            btn.innerHTML = `<svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            btn.classList.add('cursor-wait');
+
+            setTimeout(() => {
+                const targetElement = document.getElementById('main-content');
+                
+                // สร้างกล่องจำลองซ่อนไว้ เพื่อให้การแคปภาพมีขอบสวยงาม ไม่ชิดขอบจอเกินไป
+                const wrapper = document.createElement('div');
+                wrapper.style.padding = '32px';
+                wrapper.style.backgroundColor = '#0f172a'; // ใช้สีพื้นหลังเดียวกับเว็บจริง
+                wrapper.style.position = 'absolute';
+                wrapper.style.left = '-9999px';
+                
+                const clone = targetElement.cloneNode(true);
+                clone.style.width = targetElement.offsetWidth + 'px'; // ล็อคความกว้างให้เท่ากับจอที่ดูอยู่
+                wrapper.appendChild(clone);
+                document.body.appendChild(wrapper);
+
+                // คัดลอกรูปจาก Canvas กราฟมาใส่ตัวจำลอง (html2canvas มักจะมองไม่เห็นกราฟถ้าไม่ทำขั้นตอนนี้)
+                const originalCanvases = targetElement.getElementsByTagName('canvas');
+                const clonedCanvases = clone.getElementsByTagName('canvas');
+                for (let i = 0; i < originalCanvases.length; i++) {
+                    clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
+                }
+
+                html2canvas(wrapper, {
+                    backgroundColor: '#0f172a',
+                    scale: 2, // เพิ่มความคมชัดภาพเป็น 2 เท่า
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    // สร้างลิงก์และสั่งดาวน์โหลด
+                    const link = document.createElement('a');
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    link.download = `Coal_Analytics_${dateStr}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    // เคลียร์ค่าคืนกลับสภาวะปกติ
+                    document.body.removeChild(wrapper);
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('cursor-wait');
+                }).catch(err => {
+                    console.error('Error capturing dashboard:', err);
+                    alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ กรุณาลองใหม่อีกครั้ง');
+                    document.body.removeChild(wrapper);
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('cursor-wait');
+                });
+            }, 100); 
+        }
+
+        Chart.defaults.font.family = "'Prompt', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+        
+        function createOrUpdateChart(chartId, type, labels, datasets, options = {}) {
+            const ctx = document.getElementById(chartId).getContext('2d');
+            const defaultOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { 
+                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 6, padding: 15, color: '#cbd5e1' } },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1, padding: 12, cornerRadius: 8 }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#64748b' } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#64748b' } }
+                }
+            };
+
+            const finalOptions = { ...defaultOptions, ...options };
+            if(chartInstances[chartId]) {
+                chartInstances[chartId].data.labels = labels;
+                chartInstances[chartId].data.datasets = datasets;
+                chartInstances[chartId].options = finalOptions;
+                chartInstances[chartId].update();
+            } else {
+                chartInstances[chartId] = new Chart(ctx, { type, data: { labels, datasets }, options: finalOptions });
+            }
+        }
+
+        function updateDashboard() {
+            if(currentData.length === 0) return;
+
+            const labels = currentData.map(d => {
+                const parts = d.dateStr.split('/');
+                return `${parts[0]}/${parts[1]}`;
+            });
+
+            const sumValid = (arr) => arr.filter(v => v !== null).reduce((a, b) => a + b, 0);
+            const totalOut = sumValid(currentData.map(d => d.output_total));
+            const totalCost = sumValid(currentData.map(d => d.coal_cost_total));
+            const bahtPerOutput = totalOut > 0 ? (totalCost / totalOut) : 0; 
+            const validPrices = currentData.map(d => d.coal_price).filter(v => v !== null && v > 0);
+            const avgCoalPrice = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : 0;
+            const validCw = currentData.map(d => d.cw_total).filter(v => v !== null && v > 0);
+            const avgCw = validCw.length > 0 ? validCw.reduce((a, b) => a + b, 0) / validCw.length : 0;
+
+            document.getElementById('kpi-output').innerText = totalOut.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('kpi-cost').innerText = totalCost.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('kpi-baht-output').innerText = bahtPerOutput.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3});
+            document.getElementById('kpi-avg-coal-price').innerText = avgCoalPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('kpi-avg-coal-water').innerText = avgCw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            const getAvg = (arr) => {
+                const valid = arr.filter(v => v !== null && v > 0);
+                return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+            };
+
+            const updateSteamKPI = (id, value) => {
+                const card = document.getElementById(`${id}-card`);
+                const valEl = document.getElementById(id);
+                const diffEl = document.getElementById(`${id}-diff`);
+                if (value === 0 || isNaN(value)) {
+                    valEl.innerText = "-"; diffEl.innerText = "ไม่มีข้อมูล";
+                    card.className = "p-4 rounded-lg bg-slate-800 border border-slate-700 opacity-60";
                     return;
                 }
-
-                // 🚨 เช็คว่าดึงข้อมูลผิดแท็บหรือไม่
-                let totalUsageSum = allData.reduce((acc, d) => acc + d.yue_usage + d.bhs_usage + d.iso_usage, 0);
-                if (totalUsageSum === 0) {
-                    alert(`⚠️ ดึงข้อมูลมาได้ ${allData.length} วัน แต่ปริมาณกาวเป็นเลข 0 ทั้งหมด!`);
+                valEl.innerText = value.toFixed(2);
+                const diff = value - 302;
+                if (value <= 302) {
+                    card.className = "p-4 rounded-lg bg-emerald-900/20 border border-emerald-500/50";
+                    diffEl.innerText = `▼ ดีกว่าเป้า ${Math.abs(diff).toFixed(2)}`;
+                    diffEl.className = "text-xs mt-1 text-emerald-400";
+                } else {
+                    card.className = "p-4 rounded-lg bg-rose-900/20 border border-rose-500/50";
+                    diffEl.innerText = `▲ เกินเป้า ${Math.abs(diff).toFixed(2)}`;
+                    diffEl.className = "text-xs mt-1 text-rose-400";
                 }
+            };
 
-                allData.sort((a, b) => a.timestamp - b.timestamp);
+            updateSteamKPI('kpi-steam-total', getAvg(currentData.map(d => d.steam_total)));
+            updateSteamKPI('kpi-steam-isowa', getAvg(currentData.map(d => d.steam_isowa)));
+            updateSteamKPI('kpi-steam-bhs', getAvg(currentData.map(d => d.steam_bhs)));
+            updateSteamKPI('kpi-steam-yueli', getAvg(currentData.map(d => d.steam_yueli)));
 
-                if (allData.length > 0) {
-                    const minDate = new Date(allData[0].timestamp);
-                    const maxDate = new Date(allData[allData.length - 1].timestamp);
-                    
-                    const fp1 = document.getElementById('startDate')._flatpickr;
-                    const fp2 = document.getElementById('endDate')._flatpickr;
-                    
-                    if (fp1 && fp1.selectedDates.length === 0) fp1.setDate(minDate);
-                    if (fp2 && fp2.selectedDates.length === 0) fp2.setDate(maxDate);
+            const monthlyCwAvg = {};
+            currentData.forEach(d => {
+                const ym = `${d.year}-${d.month}`;
+                if (!monthlyCwAvg[ym]) monthlyCwAvg[ym] = { sum: 0, count: 0 };
+                if (d.cw_total !== null && d.cw_total > 0) {
+                    monthlyCwAvg[ym].sum += d.cw_total; monthlyCwAvg[ym].count += 1;
                 }
-
-                applyFilterLogic();
-                resetBtnState();
-            })
-            .catch(err => {
-                console.error(err);
-                alert("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + err.message);
-                resetBtnState();
             });
-            
-        function resetBtnState() {
-            if (refreshBtn) {
-                refreshBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> อัปเดตข้อมูล';
-                refreshBtn.disabled = false;
-            }
+            Object.keys(monthlyCwAvg).forEach(ym => monthlyCwAvg[ym].avg = monthlyCwAvg[ym].count > 0 ? (monthlyCwAvg[ym].sum / monthlyCwAvg[ym].count) : null);
+            const cwMonthlyAvgData = currentData.map(d => { const ym = `${d.year}-${d.month}`; return monthlyCwAvg[ym] ? monthlyCwAvg[ym].avg : null; });
+
+            createOrUpdateChart('chartSteam', 'line', labels, [
+                { label: 'ภาพรวม', data: currentData.map(d => d.steam_total), borderColor: THEME.total.border, backgroundColor: THEME.total.bg, borderWidth: 3, tension: 0.3, fill: true, spanGaps: true, pointRadius: 0 },
+                { label: 'ISOWA', data: currentData.map(d => d.steam_isowa), borderColor: THEME.isowa.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
+                { label: 'BHS', data: currentData.map(d => d.steam_bhs), borderColor: THEME.bhs.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
+                { label: 'YUELI', data: currentData.map(d => d.steam_yueli), borderColor: THEME.yueli.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
+                { label: 'Target (302)', data: currentData.map(() => 302), borderColor: THEME.target.border, borderWidth: 2, pointRadius: 0, borderDash: [5, 5], fill: false }
+            ]);
+
+            createOrUpdateChart('chartCost', 'bar', labels, [
+                { label: 'ต้นทุนถ่านหิน', data: currentData.map(d => d.coal_cost_total), backgroundColor: THEME.cost.solid, borderRadius: 4 }
+            ]);
+
+            createOrUpdateChart('chartCoalWater', 'bar', labels, [
+                { label: 'รายวัน (Daily)', data: currentData.map(d => d.cw_total), backgroundColor: THEME.bhs.solid, borderRadius: 4, order: 3 },
+                { label: 'เฉลี่ยรายเดือน', data: cwMonthlyAvgData, borderColor: THEME.yueli.solid, borderWidth: 3, type: 'line', tension: 0, pointRadius: 0, borderDash: [5, 5], fill: false, order: 2 },
+                { label: 'Target (208)', data: currentData.map(() => 208), borderColor: THEME.target.border, borderWidth: 2, type: 'line', pointRadius: 0, borderDash: [5, 5], fill: false, order: 1 }
+            ]);
+
+            createOrUpdateChart('chartBahtOutput', 'bar', labels, [
+                { label: 'ISOWA', data: currentData.map(d => d.bo_isowa), backgroundColor: THEME.isowa.solid },
+                { label: 'BHS', data: currentData.map(d => d.bo_bhs), backgroundColor: THEME.bhs.solid },
+                { label: 'YUELI', data: currentData.map(d => d.bo_yueli), backgroundColor: THEME.yueli.solid },
+                { label: 'ภาพรวม', data: currentData.map(d => d.bo_total), type: 'line', borderColor: THEME.total.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 0 }
+            ]);
+
+            createOrUpdateChart('chartCoalPrice', 'line', labels, [
+                { label: 'ราคาถ่านหิน (บาท)', data: currentData.map(d => d.coal_price), borderColor: THEME.price.border, backgroundColor: THEME.price.bg, borderWidth: 3, fill: true, tension: 0.3, spanGaps: true, pointRadius: 0 }
+            ]);
+
+            createOrUpdateChart('chartOutput', 'bar', labels, [
+                { label: 'ISOWA', data: currentData.map(d => d.output_isowa), backgroundColor: THEME.isowa.solid },
+                { label: 'BHS', data: currentData.map(d => d.output_bhs), backgroundColor: THEME.bhs.solid },
+                { label: 'YUELI', data: currentData.map(d => d.output_yueli), backgroundColor: THEME.yueli.solid }
+            ], { scales: { x: { stacked: true }, y: { stacked: true } } });
         }
-    }
 
-    // เรียกตอนเปิดเว็บ
-    loadData();
-
-    function applyFilterLogic() {
-        // ดึงข้อมูลวันที่จากแอปปฏิทิน (Flatpickr) โดยตรง แม่นยำกว่าการดึง string
-        const fpStart = document.getElementById('startDate')._flatpickr;
-        const fpEnd = document.getElementById('endDate')._flatpickr;
-
-        let startTimestamp = 0;
-        let endTimestamp = Infinity;
-
-        if (fpStart && fpStart.selectedDates && fpStart.selectedDates.length > 0) {
-            const sDate = fpStart.selectedDates[0];
-            // สร้างเวลาเที่ยงคืนตรงเป๊ะๆ
-            startTimestamp = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate()).getTime();
-        }
-        
-        if (fpEnd && fpEnd.selectedDates && fpEnd.selectedDates.length > 0) {
-            const eDate = fpEnd.selectedDates[0];
-            // สร้างเวลา 23:59:59 เพื่อให้ครอบคลุมตลอดทั้งวันนั้น
-            endTimestamp = new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate(), 23, 59, 59).getTime();
-        }
-
-        filteredData = allData.filter(d => d.timestamp >= startTimestamp && d.timestamp <= endTimestamp);
-        processDashboard();
-    }
-
-    function applyFilter() { applyFilterLogic(); }
-
-    function resetFilter() {
-        if(allData.length > 0) {
-            const fp1 = document.getElementById('startDate')._flatpickr;
-            const fp2 = document.getElementById('endDate')._flatpickr;
-            if(fp1) fp1.setDate(new Date(allData[0].timestamp));
-            if(fp2) fp2.setDate(new Date(allData[allData.length-1].timestamp));
-        }
-        applyFilterLogic();
-    }
-
-    function processDashboard() {
-        let sum = {
-            iso_usage: 0, iso_cost: 0, iso_out: 0, iso_sqm: 0,
-            bhs_usage: 0, bhs_cost: 0, bhs_out: 0, bhs_sqm: 0,
-            yue_usage: 0, yue_cost: 0, yue_out: 0, yue_sqm: 0,
-            quality: 0, q_count: 0
-        };
-
-        filteredData.forEach(d => {
-            sum.iso_usage += d.iso_usage; sum.iso_cost += d.iso_cost; sum.iso_out += d.iso_out; sum.iso_sqm += d.iso_sqm;
-            sum.bhs_usage += d.bhs_usage; sum.bhs_cost += d.bhs_cost; sum.bhs_out += d.bhs_out; sum.bhs_sqm += d.bhs_sqm;
-            sum.yue_usage += d.yue_usage; sum.yue_cost += d.yue_cost; sum.yue_out += d.yue_out; sum.yue_sqm += d.yue_sqm;
-            if(d.quality > 0) { sum.quality += d.quality; sum.q_count++; }
-        });
-
-        const totalUsage = sum.iso_usage + sum.bhs_usage + sum.yue_usage;
-        const totalCost = sum.iso_cost + sum.bhs_cost + sum.yue_cost;
-        const totalOutput = sum.iso_out + sum.bhs_out + sum.yue_out;
-        const totalSqm = sum.iso_sqm + sum.bhs_sqm + sum.yue_sqm;
-        
-        const avgRatio = totalOutput > 0 ? (totalCost / totalOutput) : 0;
-        const avgGramSqm = totalSqm > 0 ? ((totalUsage * 1000) / totalSqm) : 0;
-        const avgGramOutput = totalOutput > 0 ? ((totalUsage * 1000) / totalOutput) : 0;
-
-        const safeDiv = (a, b) => b > 0 ? (a / b) : 0;
-
-        const kpi = {
-            iso: { name: 'ISOWA', usage: sum.iso_usage, cost: sum.iso_cost, ratio: safeDiv(sum.iso_cost, sum.iso_out), gSqm: safeDiv(sum.iso_usage * 1000, sum.iso_sqm), gOut: safeDiv(sum.iso_usage * 1000, sum.iso_out) },
-            bhs: { name: 'BHS', usage: sum.bhs_usage, cost: sum.bhs_cost, ratio: safeDiv(sum.bhs_cost, sum.bhs_out), gSqm: safeDiv(sum.bhs_usage * 1000, sum.bhs_sqm), gOut: safeDiv(sum.bhs_usage * 1000, sum.bhs_out) },
-            yue: { name: 'YUELI', usage: sum.yue_usage, cost: sum.yue_cost, ratio: safeDiv(sum.yue_cost, sum.yue_out), gSqm: safeDiv(sum.yue_usage * 1000, sum.yue_sqm), gOut: safeDiv(sum.yue_usage * 1000, sum.yue_out) }
-        };
-
-        // อัปเดตตัวเลข
-        document.getElementById('kpiTotalUsage').innerText = totalUsage.toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('kpiTotalCost').innerText = "฿" + totalCost.toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('kpiTotalOutput').innerText = totalOutput.toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('kpiAvgRatio').innerText = "฿ " + avgRatio.toFixed(3);
-        
-        document.getElementById('kpiGramSqm').innerText = avgGramSqm > 0 ? avgGramSqm.toFixed(2) : "0.00";
-        document.getElementById('kpiGramOutput').innerText = avgGramOutput > 0 ? avgGramOutput.toFixed(2) : "0.00";
-        
-        // อัปเดตการ์ดเปอร์เซ็นต์คุณภาพกาว
-        const avgQuality = sum.q_count > 0 ? (sum.quality / sum.q_count) : 0;
-        document.getElementById('kpiQuality').innerText = avgQuality > 0 ? avgQuality.toFixed(2) + "%" : "--";
-
-        // วาดกราฟ แถว 1 (Bar Charts)
-        updateBarChart('barUsage', 'ปริมาณกาว (kg)', [kpi.iso.usage, kpi.bhs.usage, kpi.yue.usage]);
-        updateBarChart('barCost', 'ค่ากาว (Baht)', [kpi.iso.cost, kpi.bhs.cost, kpi.yue.cost]);
-        updateBarChart('barGramSqm', 'กรัม / ตรม. (g/Sqm)', [kpi.iso.gSqm, kpi.bhs.gSqm, kpi.yue.gSqm]);
-        
-        // วาดกราฟ แถว 2 (Trend Lines)
-        updateTrendRatioChart();
-        updateTrendGramSqmChart();
-        updateTrendGramOutputChart();
-        
-        // วาดกราฟ แถว 3 (Quality Chart)
-        updateTrendQualityChart();
-    }
-
-    function updateBarChart(canvasId, label, dataArr) {
-        if(charts[canvasId]) charts[canvasId].destroy();
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        
-        charts[canvasId] = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['ISOWA', 'BHS', 'YUELI'],
-                datasets: [{
-                    label: label,
-                    data: dataArr,
-                    backgroundColor: [colors.iso.bg, colors.bhs.bg, colors.yue.bg],
-                    borderColor: [colors.iso.border, colors.bhs.border, colors.yue.border],
-                    borderWidth: 2, borderRadius: 8
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` } }
-                },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    // กราฟ Trend ฿/Output
-    function updateTrendRatioChart() {
-        if(charts['trendRatio']) charts['trendRatio'].destroy();
-        const ctx = document.getElementById('trendRatio').getContext('2d');
-        const labels = filteredData.map(d => d.dateStr);
-        const calcDailyKPI = (cost, out) => out > 0 ? (cost / out) : null;
-        
-        charts['trendRatio'] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'ISOWA', data: filteredData.map(d => calcDailyKPI(d.iso_cost, d.iso_out)), borderColor: colors.iso.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, spanGaps: true },
-                    { label: 'BHS', data: filteredData.map(d => calcDailyKPI(d.bhs_cost, d.bhs_out)), borderColor: colors.bhs.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, spanGaps: true },
-                    { label: 'YUELI', data: filteredData.map(d => calcDailyKPI(d.yue_cost, d.yue_out)), borderColor: colors.yue.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, spanGaps: true }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top', labels: { color: '#f8fafc', usePointStyle: true, boxWidth: 8 } } },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
-                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
-                }
-            }
-        });
-    }
-
-    // กราฟ Trend กรัม / SQM
-    function updateTrendGramSqmChart() {
-        if(charts['trendGramSqm']) charts['trendGramSqm'].destroy();
-        const ctx = document.getElementById('trendGramSqm').getContext('2d');
-        const labels = filteredData.map(d => d.dateStr);
-        const calcGramSqm = (usage, sqm) => sqm > 0 ? ((usage * 1000) / sqm) : null;
-        
-        charts['trendGramSqm'] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'ISOWA', data: filteredData.map(d => calcGramSqm(d.iso_usage, d.iso_sqm)), borderColor: colors.iso.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true },
-                    { label: 'BHS', data: filteredData.map(d => calcGramSqm(d.bhs_usage, d.bhs_sqm)), borderColor: colors.bhs.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true },
-                    { label: 'YUELI', data: filteredData.map(d => calcGramSqm(d.yue_usage, d.yue_sqm)), borderColor: colors.yue.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { 
-                    legend: { position: 'top', labels: { color: '#f8fafc', usePointStyle: true, boxWidth: 8 } },
-                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw ? ctx.raw.toFixed(2) + ' g/Sqm' : 'N/A'}` } }
-                },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
-                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
-                }
-            }
-        });
-    }
-
-    // กราฟ Trend กรัม / Output
-    function updateTrendGramOutputChart() {
-        if(charts['trendGramOutput']) charts['trendGramOutput'].destroy();
-        const ctx = document.getElementById('trendGramOutput').getContext('2d');
-        const labels = filteredData.map(d => d.dateStr);
-        const calcGramOut = (usage, out) => out > 0 ? ((usage * 1000) / out) : null;
-        
-        charts['trendGramOutput'] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'ISOWA', data: filteredData.map(d => calcGramOut(d.iso_usage, d.iso_out)), borderColor: colors.iso.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true },
-                    { label: 'BHS', data: filteredData.map(d => calcGramOut(d.bhs_usage, d.bhs_out)), borderColor: colors.bhs.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true },
-                    { label: 'YUELI', data: filteredData.map(d => calcGramOut(d.yue_usage, d.yue_out)), borderColor: colors.yue.border, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, spanGaps: true }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { 
-                    legend: { position: 'top', labels: { color: '#f8fafc', usePointStyle: true, boxWidth: 8 } },
-                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw ? ctx.raw.toFixed(2) + ' g/Out' : 'N/A'}` } }
-                },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
-                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
-                }
-            }
-        });
-    }
-    
-    // กราฟ Trend % คุณภาพกาว
-    function updateTrendQualityChart() {
-        if(charts['trendQuality']) charts['trendQuality'].destroy();
-        const ctx = document.getElementById('trendQuality').getContext('2d');
-        const labels = filteredData.map(d => d.dateStr);
-        
-        charts['trendQuality'] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { 
-                        label: '% คุณภาพกาวเฉลี่ย', 
-                        data: filteredData.map(d => d.quality > 0 ? d.quality : null), 
-                        borderColor: '#8b5cf6', // Violet
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)', 
-                        fill: true,
-                        tension: 0.3, 
-                        pointRadius: 4, 
-                        spanGaps: true 
-                    }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'top', labels: { color: '#f8fafc', usePointStyle: true, boxWidth: 8 } } },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false },
-                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
-                }
-            }
-        });
-    }
-</script>
-
+        window.onload = loadData;
+    </script>
 </body>
 </html>
