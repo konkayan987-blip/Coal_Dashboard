@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Google Fonts: Prompt -->
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -84,6 +86,18 @@
         <p class="text-slate-400 mt-2 text-sm text-center">กำลังดึงข้อมูลล่าสุดจาก Google Sheet</p>
     </div>
 
+    <!-- 🌟 ปุ่มลอยสำหรับแคปหน้าจอ (มุมขวาล่าง) 🌟 -->
+    <button onclick="downloadDashboard(event)" class="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all duration-300 hover:scale-110 z-50 group flex items-center justify-center cursor-pointer border border-indigo-400/30" title="บันทึกรูปภาพแดชบอร์ด">
+        <!-- ไอคอนกล้องถ่ายรูป -->
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        
+        <!-- Tooltip ข้อความ (จะแสดงเมื่อเอาเมาส์ชี้) -->
+        <span class="absolute right-full mr-4 whitespace-nowrap bg-slate-800 text-slate-100 text-sm px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-600 shadow-xl font-medium flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            แคปหน้าจอภาพรวม
+        </span>
+    </button>
+
     <div class="max-w-[1400px] mx-auto space-y-6 hidden" id="main-content">
         
         <!-- Header & Filters แบบใหม่ (Date Range) -->
@@ -118,8 +132,7 @@
                     <span class="text-slate-400 text-sm font-medium px-1">ถึง:</span>
                     <input type="date" id="end-date" class="dark-input" onchange="clearQuickMonth()">
                 </div>
-                
-                <div class="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 ml-auto xl:ml-2">
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 ml-auto xl:ml-2">
                     <button onclick="applyFilters()" class="flex-1 sm:flex-none bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                         กรองข้อมูล
@@ -247,44 +260,56 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             <div class="panel p-5 border-t-2 border-t-teal-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartSteam"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-t-rose-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> 2. ต้นทุนถ่านหินภาพรวม (Baht)
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> 2. ต้นทุนถ่านหินภาพรวม (Baht)
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartCost"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-t-purple-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน & เฉลี่ยรายเดือน) Target 208
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน & เฉลี่ยรายเดือน) Target 208
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartCoalWater"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-t-amber-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> 4. การใช้ราคา บาท/Output (แยกเครื่อง)
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> 4. การใช้ราคา บาท/Output (แยกเครื่อง)
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartBahtOutput"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-t-indigo-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน)
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน)
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartCoalPrice"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-t-emerald-500">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (ตัน/วัน)
-                </h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (ตัน/วัน)
+                    </h2>
+                </div>
                 <div class="chart-container"><canvas id="chartOutput"></canvas></div>
             </div>
 
@@ -494,8 +519,8 @@
                         const maxDate = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
                         const startInput = document.getElementById('start-date');
                         const endInput = document.getElementById('end-date');
-                        if (!startInput.value) startInput.value = minDate;
-                        if (!endInput.value) endInput.value = maxDate;
+                        if (startInput && !startInput.value) startInput.value = minDate;
+                        if (endInput && !endInput.value) endInput.value = maxDate;
                     }
 
                     document.getElementById('loading-overlay').style.display = 'none';
@@ -526,6 +551,66 @@
                 document.getElementById('end-date').value = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
             }
             applyFilters();
+        }
+
+        // =========================================================================
+        // 📸 ฟังก์ชันสำหรับแคปทั้งหน้าจอแดชบอร์ด (ทำงานเมื่อกดปุ่มลอยมุมขวาล่าง)
+        // =========================================================================
+        function downloadDashboard(event) {
+            const btn = event.currentTarget;
+            const originalContent = btn.innerHTML;
+            
+            // แสดงสถานะกำลังโหลดที่ปุ่ม
+            btn.innerHTML = `<svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            btn.classList.add('cursor-wait');
+
+            setTimeout(() => {
+                const targetElement = document.getElementById('main-content');
+                
+                // สร้างกล่องจำลองซ่อนไว้ เพื่อให้การแคปภาพมีขอบสวยงาม ไม่ชิดขอบจอเกินไป
+                const wrapper = document.createElement('div');
+                wrapper.style.padding = '32px';
+                wrapper.style.backgroundColor = '#0f172a'; // ใช้สีพื้นหลังเดียวกับเว็บจริง
+                wrapper.style.position = 'absolute';
+                wrapper.style.left = '-9999px';
+                
+                const clone = targetElement.cloneNode(true);
+                clone.style.width = targetElement.offsetWidth + 'px'; // ล็อคความกว้างให้เท่ากับจอที่ดูอยู่
+                wrapper.appendChild(clone);
+                document.body.appendChild(wrapper);
+
+                // คัดลอกรูปจาก Canvas กราฟมาใส่ตัวจำลอง (html2canvas มักจะมองไม่เห็นกราฟถ้าไม่ทำขั้นตอนนี้)
+                const originalCanvases = targetElement.getElementsByTagName('canvas');
+                const clonedCanvases = clone.getElementsByTagName('canvas');
+                for (let i = 0; i < originalCanvases.length; i++) {
+                    clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
+                }
+
+                html2canvas(wrapper, {
+                    backgroundColor: '#0f172a',
+                    scale: 2, // เพิ่มความคมชัดภาพเป็น 2 เท่า
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    // สร้างลิงก์และสั่งดาวน์โหลด
+                    const link = document.createElement('a');
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    link.download = `Coal_Analytics_${dateStr}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    // เคลียร์ค่าคืนกลับสภาวะปกติ
+                    document.body.removeChild(wrapper);
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('cursor-wait');
+                }).catch(err => {
+                    console.error('Error capturing dashboard:', err);
+                    alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ กรุณาลองใหม่อีกครั้ง');
+                    document.body.removeChild(wrapper);
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('cursor-wait');
+                });
+            }, 100); 
         }
 
         Chart.defaults.font.family = "'Prompt', sans-serif";
