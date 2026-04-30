@@ -101,7 +101,7 @@
     <div class="max-w-[1400px] mx-auto space-y-6 hidden" id="main-content">
         
         <!-- Header & Filters แบบใหม่ (Date Range) -->
-        <div class="panel p-4 lg:p-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 border-l-4 border-l-teal-400">
+        <div class="panel p-4 lg:p-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 border-l-4 border-teal-400">
             <div class="flex items-center gap-4">
                 <div class="p-2 bg-slate-800 rounded-lg border border-slate-700">
                     <svg class="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
@@ -227,7 +227,7 @@
         </div>
 
         <!-- Steam KPI (Target 302) -->
-        <div class="panel p-5 border-t-2 border-t-slate-600">
+        <div class="panel p-5 border-t-2 border-slate-600">
             <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
                 <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 เฉลี่ย ไอน้ำต่อการผลิต (เป้าหมาย 302 ml/kg Output)
@@ -259,7 +259,7 @@
         <!-- กราฟวิเคราะห์ (Charts Grid) -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            <div class="panel p-5 border-t-2 border-t-teal-500">
+            <div class="panel p-5 border-t-2 border-teal-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ
@@ -268,7 +268,7 @@
                 <div class="chart-container"><canvas id="chartSteam"></canvas></div>
             </div>
 
-            <div class="panel p-5 border-t-2 border-t-rose-500">
+            <div class="panel p-5 border-t-2 border-rose-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span> 2. ต้นทุนถ่านหินภาพรวม (Baht)
@@ -277,7 +277,7 @@
                 <div class="chart-container"><canvas id="chartCost"></canvas></div>
             </div>
 
-            <div class="panel p-5 border-t-2 border-t-purple-500">
+            <div class="panel p-5 border-t-2 border-purple-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน & เฉลี่ยรายเดือน) Target 208
@@ -286,7 +286,7 @@
                 <div class="chart-container"><canvas id="chartCoalWater"></canvas></div>
             </div>
 
-            <div class="panel p-5 border-t-2 border-t-amber-500">
+            <div class="panel p-5 border-t-2 border-amber-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span> 4. การใช้ราคา บาท/Output (แยกเครื่อง)
@@ -295,7 +295,7 @@
                 <div class="chart-container"><canvas id="chartBahtOutput"></canvas></div>
             </div>
 
-            <div class="panel p-5 border-t-2 border-t-indigo-500">
+            <div class="panel p-5 border-t-2 border-indigo-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน)
@@ -304,7 +304,7 @@
                 <div class="chart-container"><canvas id="chartCoalPrice"></canvas></div>
             </div>
 
-            <div class="panel p-5 border-t-2 border-t-emerald-500">
+            <div class="panel p-5 border-t-2 border-emerald-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (ตัน/วัน)
@@ -356,7 +356,7 @@
             bhs:    { border: '#a855f7', bg: 'rgba(168, 85, 247, 0.2)', solid: '#a855f7' }, // Purple
             yueli:  { border: '#facc15', bg: 'rgba(250, 204, 21, 0.2)', solid: '#facc15' }, // Yellow
             total:  { border: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.1)', solid: '#2dd4bf' }, // Teal
-            target: { border: '#f43f5e', bg: 'transparent', solid: '#f43f5e' },             // Rose (Red)
+            target: { border: '#f43f5e', bg: 'transparent', solid: '#f43f5e' },              // Rose (Red)
             cost:   { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.2)',  solid: '#f43f5e' }, // Rose
             price:  { border: '#6366f1', bg: 'rgba(99, 102, 241, 0.2)', solid: '#6366f1' }  // Indigo
         };
@@ -386,11 +386,21 @@
             if (!dateStr) return new Date();
             const parts = dateStr.split(/[-/]/);
             if (parts.length === 3) {
-                let day = parseInt(parts[0], 10);
-                let month = parseInt(parts[1], 10) - 1;
-                let year = parseInt(parts[2], 10);
+                let day, month, year;
+                // เช็คว่ารูปแบบเป็น YYYY-MM-DD หรือ DD-MM-YYYY
+                if (parts[0].length === 4) {
+                    year = parseInt(parts[0], 10);
+                    month = parseInt(parts[1], 10) - 1;
+                    day = parseInt(parts[2], 10);
+                } else {
+                    day = parseInt(parts[0], 10);
+                    month = parseInt(parts[1], 10) - 1;
+                    year = parseInt(parts[2], 10);
+                }
+                
+                // รองรับปี พ.ศ. ให้แปลงเป็น ค.ศ.
                 if (year > 2500) year -= 543;
-                if (parts[0].length === 4) { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+                
                 return new Date(year, month, day);
             }
             return new Date(dateStr);
@@ -579,11 +589,13 @@
                 wrapper.appendChild(clone);
                 document.body.appendChild(wrapper);
 
-                // คัดลอกรูปจาก Canvas กราฟมาใส่ตัวจำลอง (html2canvas มักจะมองไม่เห็นกราฟถ้าไม่ทำขั้นตอนนี้)
+                // คัดลอกรูปจาก Canvas กราฟมาใส่ตัวจำลอง (Safety Check กัน Error กรณีไม่มี Canvas)
                 const originalCanvases = targetElement.getElementsByTagName('canvas');
                 const clonedCanvases = clone.getElementsByTagName('canvas');
                 for (let i = 0; i < originalCanvases.length; i++) {
-                    clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
+                    if(originalCanvases[i].width > 0 && originalCanvases[i].height > 0) {
+                        clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
+                    }
                 }
 
                 html2canvas(wrapper, {
@@ -624,7 +636,26 @@
                 interaction: { mode: 'index', intersect: false },
                 plugins: { 
                     legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 6, padding: 15, color: '#cbd5e1' } },
-                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1, padding: 12, cornerRadius: 8 }
+                    tooltip: { 
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                        titleColor: '#f8fafc', 
+                        bodyColor: '#cbd5e1', 
+                        borderColor: '#334155', 
+                        borderWidth: 1, 
+                        padding: 12, 
+                        cornerRadius: 8,
+                        callbacks: {
+                            // การจัดฟอร์แมตตัวเลขใน Tooltip ให้มีลูกน้ำ
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#64748b' } },
