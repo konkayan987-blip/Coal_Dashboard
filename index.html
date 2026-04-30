@@ -383,7 +383,7 @@
         };
 
         const parseDate = (dateStr) => {
-            if (!dateStr) return null; // ส่งกลับเป็น null เพื่อป้องกันการใส่วันที่ปัจจุบัน
+            if (!dateStr || String(dateStr).trim() === '') return null; // ตรวจสอบค่าว่าง
             const parts = dateStr.split(/[-/]/);
             if (parts.length === 3) {
                 let day, month, year;
@@ -489,14 +489,12 @@
                         return;
                     }
 
-                    // 👉 ฟิลเตอร์: กรองแถวที่ 'ไม่มีวันที่' ทิ้งไปเพื่อป้องกันปัญหาวันที่เกิน/ซ้ำกันตอนปลายกราฟ
-                    const validRows = results.data.filter(row => {
-                        const dateStr = row[COLUMN_MAP.date];
-                        return dateStr && String(dateStr).trim() !== '';
-                    });
+                    rawData = results.data.map(row => {
+                        const dateRaw = row[COLUMN_MAP.date];
+                        if (!dateRaw || String(dateRaw).trim() === '') return null;
 
-                    rawData = validRows.map(row => {
-                        const dObj = parseDate(row[COLUMN_MAP.date]);
+                        const dObj = parseDate(dateRaw);
+                        if (!dObj || isNaN(dObj.getTime())) return null;
                         
                         let steam_i = extractCol(row, COLUMN_MAP.steam_isowa);
                         let steam_b = extractCol(row, COLUMN_MAP.steam_bhs);
@@ -512,6 +510,17 @@
                         let cw_y = extractCol(row, COLUMN_MAP.cw_yueli);
                         let cw_t = extractCol(row, COLUMN_MAP.cw_total);
 
+                        let out_t = extractCol(row, COLUMN_MAP.output_total);
+                        let out_i = extractCol(row, COLUMN_MAP.output_isowa);
+                        let out_b = extractCol(row, COLUMN_MAP.output_bhs);
+                        let out_y = extractCol(row, COLUMN_MAP.output_yueli);
+                        let cost_t = extractCol(row, COLUMN_MAP.coal_cost_total);
+
+                        // 🛑 ป้องกันปัญหาวันที่เกิน/ซ้ำซ้อน: ถ้าผลผลิต ต้นทุน และสตีม เป็น 0 หรือ null หมด 
+                        // จะถือว่าเป็น "แถวว่างที่ถูกรันสูตรไว้ล่วงหน้า" ให้กรองทิ้งทันที
+                        const dataSumCheck = (steam_t || 0) + (cost_t || 0) + (out_t || 0) + (out_b || 0) + (out_y || 0);
+                        if (dataSumCheck === 0) return null;
+
                         return {
                             dateObj: dObj,
                             dateStr: `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}/${dObj.getFullYear()}`,
@@ -519,13 +528,13 @@
                             month: dObj.getMonth() + 1,
                             timeValue: dObj.getTime(),
                             steam_total: steam_t, steam_isowa: steam_i, steam_bhs: steam_b, steam_yueli: steam_y,
-                            coal_cost_total: extractCol(row, COLUMN_MAP.coal_cost_total),
+                            coal_cost_total: cost_t,
                             cw_total: cw_t, cw_isowa: cw_i, cw_bhs: cw_b, cw_yueli: cw_y,
                             bo_total: extractCol(row, COLUMN_MAP.bo_total), bo_isowa: extractCol(row, COLUMN_MAP.bo_isowa), bo_bhs: extractCol(row, COLUMN_MAP.bo_bhs), bo_yueli: extractCol(row, COLUMN_MAP.bo_yueli),
                             coal_price: extractCol(row, COLUMN_MAP.coal_price),
-                            output_total: extractCol(row, COLUMN_MAP.output_total), output_isowa: extractCol(row, COLUMN_MAP.output_isowa), output_bhs: extractCol(row, COLUMN_MAP.output_bhs), output_yueli: extractCol(row, COLUMN_MAP.output_yueli)
+                            output_total: out_t, output_isowa: out_i, output_bhs: out_b, output_yueli: out_y
                         };
-                    }).filter(d => d.dateObj !== null).sort((a, b) => a.timeValue - b.timeValue); // เพิ่มการกรอง null อีกชั้น
+                    }).filter(d => d !== null).sort((a, b) => a.timeValue - b.timeValue);
 
                     currentData = [...rawData];
                     populateQuickMonth();
