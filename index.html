@@ -383,7 +383,7 @@
         };
 
         const parseDate = (dateStr) => {
-            if (!dateStr) return new Date();
+            if (!dateStr) return null; // ส่งกลับเป็น null เพื่อป้องกันการใส่วันที่ปัจจุบัน
             const parts = dateStr.split(/[-/]/);
             if (parts.length === 3) {
                 let day, month, year;
@@ -489,7 +489,13 @@
                         return;
                     }
 
-                    rawData = results.data.map(row => {
+                    // 👉 ฟิลเตอร์: กรองแถวที่ 'ไม่มีวันที่' ทิ้งไปเพื่อป้องกันปัญหาวันที่เกิน/ซ้ำกันตอนปลายกราฟ
+                    const validRows = results.data.filter(row => {
+                        const dateStr = row[COLUMN_MAP.date];
+                        return dateStr && String(dateStr).trim() !== '';
+                    });
+
+                    rawData = validRows.map(row => {
                         const dObj = parseDate(row[COLUMN_MAP.date]);
                         
                         let steam_i = extractCol(row, COLUMN_MAP.steam_isowa);
@@ -519,7 +525,7 @@
                             coal_price: extractCol(row, COLUMN_MAP.coal_price),
                             output_total: extractCol(row, COLUMN_MAP.output_total), output_isowa: extractCol(row, COLUMN_MAP.output_isowa), output_bhs: extractCol(row, COLUMN_MAP.output_bhs), output_yueli: extractCol(row, COLUMN_MAP.output_yueli)
                         };
-                    }).sort((a, b) => a.timeValue - b.timeValue);
+                    }).filter(d => d.dateObj !== null).sort((a, b) => a.timeValue - b.timeValue); // เพิ่มการกรอง null อีกชั้น
 
                     currentData = [...rawData];
                     populateQuickMonth();
