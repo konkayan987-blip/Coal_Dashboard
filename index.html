@@ -187,7 +187,8 @@
                         <p class="text-3xl font-bold text-amber-400 flex items-baseline gap-1">
                             <span class="text-xl">฿</span> <span id="kpi-baht-output">0.000</span>
                         </p>
-                        <p class="text-xs text-slate-500 mt-1">ต้นทุนต่อหน่วยผลิต (Target):0.188 ฿/kg</p>
+                        <p class="text-xs text-slate-500 mt-1">เป้าหมาย (Target): 0.188 ฿/kg</p>
+                        <p class="text-xs mt-1 font-medium" id="kpi-baht-output-diff">-</p>
                     </div>
                     <div class="p-2 bg-amber-500/10 rounded border border-amber-500/20">
                         <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
@@ -218,6 +219,7 @@
                         <p class="text-sm font-medium text-slate-400 mb-1">เฉลี่ย ถ่านต่อไอน้ำ</p>
                         <p class="text-3xl font-bold text-purple-400" id="kpi-avg-coal-water">0.00</p>
                         <p class="text-xs text-slate-500 mt-1">เป้าหมาย (Target): 208</p>
+                        <p class="text-xs mt-1 font-medium" id="kpi-avg-coal-water-diff">-</p>
                     </div>
                     <div class="p-2 bg-purple-500/10 rounded border border-purple-500/20">
                         <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -609,6 +611,8 @@
                 const clonedCanvases = clone.getElementsByTagName('canvas');
                 for (let i = 0; i < originalCanvases.length; i++) {
                     if(originalCanvases[i].width > 0 && originalCanvases[i].height > 0) {
+                        clonedCanvases[i].width = originalCanvases[i].width;
+                        clonedCanvases[i].height = originalCanvases[i].height;
                         clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
                     }
                 }
@@ -712,6 +716,42 @@
             document.getElementById('kpi-avg-coal-price').innerText = avgCoalPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('kpi-avg-coal-water').innerText = avgCw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
+            // คำนวณค่า Diff และ เปอร์เซ็นต์: ต้นทุน ฿ / Kg Output (Target: 0.188)
+            const targetBo = 0.188;
+            const diffBoEl = document.getElementById('kpi-baht-output-diff');
+            if (diffBoEl) {
+                if (bahtPerOutput > 0) {
+                    const diffBo = bahtPerOutput - targetBo;
+                    const diffBoPercent = (diffBo / targetBo) * 100;
+                    const signBo = diffBoPercent > 0 ? '+' : '';
+                    if (diffBo <= 0) {
+                        diffBoEl.innerHTML = `<span class="text-emerald-400">▼ ดีกว่าเป้า ${Math.abs(diffBo).toFixed(3)} (${diffBoPercent.toFixed(2)}%)</span>`;
+                    } else {
+                        diffBoEl.innerHTML = `<span class="text-rose-400">▲ เกินเป้า ${Math.abs(diffBo).toFixed(3)} (${signBo}${diffBoPercent.toFixed(2)}%)</span>`;
+                    }
+                } else {
+                    diffBoEl.innerHTML = `<span class="text-slate-500">-</span>`;
+                }
+            }
+
+            // คำนวณค่า Diff และ เปอร์เซ็นต์: ถ่านต่อไอน้ำ (Target: 208)
+            const targetCw = 208;
+            const diffCwEl = document.getElementById('kpi-avg-coal-water-diff');
+            if (diffCwEl) {
+                if (avgCw > 0) {
+                    const diffCw = avgCw - targetCw;
+                    const diffCwPercent = (diffCw / targetCw) * 100;
+                    const signCw = diffCwPercent > 0 ? '+' : '';
+                    if (diffCw <= 0) {
+                        diffCwEl.innerHTML = `<span class="text-emerald-400">▼ ดีกว่าเป้า ${Math.abs(diffCw).toFixed(2)} (${diffCwPercent.toFixed(2)}%)</span>`;
+                    } else {
+                        diffCwEl.innerHTML = `<span class="text-rose-400">▲ เกินเป้า ${Math.abs(diffCw).toFixed(2)} (${signCw}${diffCwPercent.toFixed(2)}%)</span>`;
+                    }
+                } else {
+                    diffCwEl.innerHTML = `<span class="text-slate-500">-</span>`;
+                }
+            }
+
             const getAvg = (arr) => {
                 const valid = arr.filter(v => v !== null && v > 0);
                 return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
@@ -728,14 +768,16 @@
                 }
                 valEl.innerText = value.toFixed(2);
                 const diff = value - 302;
+                const diffPercent = ((value - 302) / 302) * 100;
+                const sign = diffPercent > 0 ? '+' : '';
                 if (value <= 302) {
                     card.className = "p-4 rounded-lg bg-emerald-900/20 border border-emerald-500/50";
-                    diffEl.innerText = `▼ ดีกว่าเป้า ${Math.abs(diff).toFixed(2)}`;
-                    diffEl.className = "text-xs mt-1 text-emerald-400";
+                    diffEl.innerText = `▼ ดีกว่าเป้า ${Math.abs(diff).toFixed(2)} (${diffPercent.toFixed(2)}%)`;
+                    diffEl.className = "text-xs mt-1 text-emerald-400 font-medium";
                 } else {
                     card.className = "p-4 rounded-lg bg-rose-900/20 border border-rose-500/50";
-                    diffEl.innerText = `▲ เกินเป้า ${Math.abs(diff).toFixed(2)}`;
-                    diffEl.className = "text-xs mt-1 text-rose-400";
+                    diffEl.innerText = `▲ เกินเป้า ${Math.abs(diff).toFixed(2)} (${sign}${diffPercent.toFixed(2)}%)`;
+                    diffEl.className = "text-xs mt-1 text-rose-400 font-medium";
                 }
             };
 
