@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- html2canvas -->
@@ -47,6 +49,7 @@
             font-size: 0.875rem;
             outline: none;
             cursor: pointer;
+            color-scheme: dark; /* Helps native date picker look dark */
         }
         .dark-input:focus {
             border-color: #2dd4bf;
@@ -72,26 +75,54 @@
             display: flex; justify-content: center; align-items: center; flex-direction: column;
             backdrop-filter: blur(4px);
         }
+
+        /* Error/Message Box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: none;
+            max-width: 400px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            animation: slideInRight 0.3s ease-out forwards;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
     </style>
 </head>
-<body class="p-4 md:p-6 lg:p-8">
+<body class="p-4 md:p-6 lg:p-8" id="dashboard-body">
+
+    <!-- Message Box (replaces alert) -->
+    <div id="message-box" class="bg-rose-900 border-l-4 border-rose-500 text-rose-100 p-4 rounded shadow-lg flex items-start gap-3">
+        <svg class="w-6 h-6 text-rose-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <div>
+            <h3 class="font-bold text-sm" id="msg-title">Error</h3>
+            <p class="text-xs mt-1" id="msg-desc">Message content</p>
+        </div>
+        <button onclick="hideMessage()" class="ml-auto text-rose-300 hover:text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
 
     <!-- หน้าต่างโหลดข้อมูล -->
     <div id="loading-overlay">
-        <div class="relative w-16 h-16">
+        <div class="relative w-16 h-16" id="loading-spinner">
             <div class="absolute top-0 left-0 w-full h-full border-4 border-slate-700 rounded-full"></div>
             <div class="absolute top-0 left-0 w-full h-full border-4 border-teal-400 rounded-full border-t-transparent animate-spin"></div>
         </div>
-        <h2 class="text-xl font-bold text-slate-200 mt-6 tracking-wide">กำลังเชื่อมต่อข้อมูล...</h2>
-        <p class="text-slate-400 mt-2 text-sm text-center">กำลังดึงข้อมูลล่าสุดจาก Google Sheet</p>
+        <h2 class="text-xl font-bold text-slate-200 mt-6 tracking-wide" id="loading-text">กำลังเชื่อมต่อข้อมูล...</h2>
+        <p class="text-slate-400 mt-2 text-sm text-center" id="loading-subtext">กำลังดึงข้อมูลล่าสุดจาก Google Sheet</p>
     </div>
 
     <!-- 🌟 ปุ่มลอยสำหรับแคปหน้าจอ (มุมขวาล่าง) 🌟 -->
-    <button onclick="downloadDashboard(event)" class="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all duration-300 hover:scale-110 z-50 group flex items-center justify-center cursor-pointer border border-indigo-400/30" title="บันทึกรูปภาพแดชบอร์ด">
+    <button id="download-btn" onclick="downloadDashboard(event)" class="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all duration-300 hover:scale-110 z-50 group flex items-center justify-center cursor-pointer border border-indigo-400/30" title="บันทึกรูปภาพแดชบอร์ด">
         <!-- ไอคอนกล้องถ่ายรูป -->
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         
-        <!-- Tooltip ข้อความ (จะแสดงเมื่อเอาเมาส์ชี้) -->
+        <!-- Tooltip ข้อความ -->
         <span class="absolute right-full mr-4 whitespace-nowrap bg-slate-800 text-slate-100 text-sm px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-600 shadow-xl font-medium flex items-center gap-2">
             <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             แคปหน้าจอภาพรวม
@@ -113,7 +144,7 @@
             </div>
             
             <!-- แถบกรองวันที่และปุ่มควบคุม -->
-            <div class="flex flex-wrap items-center gap-3 bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50 w-full xl:w-auto">
+            <div class="flex flex-wrap items-center gap-3 bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50 w-full xl:w-auto" id="filter-controls">
                 <!-- Dropdown สำหรับเลือกช่วงเวลาด่วน -->
                 <div class="flex items-center gap-2">
                     <span class="text-slate-400 text-sm font-medium px-1">ดูด่วน:</span>
@@ -146,6 +177,48 @@
                         อัปเดตข้อมูล
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- 🎛️ กล่องตัวเลือกการแสดงผล (Display Options) -->
+        <div class="panel p-3 border-l-4 border-indigo-500 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-slate-800/80">
+            <div class="flex flex-wrap items-center gap-4">
+                <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    ตัวเลือกแสดงเส้นข้อมูล:
+                </span>
+                
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" checked onchange="toggleSeries('total', this.checked)">
+                  <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-500"></div>
+                  <span class="ms-2 text-sm font-medium text-slate-300">รวม (Total)</span>
+                </label>
+
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('isowa', this.checked)">
+                  <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+                  <span class="ms-2 text-sm font-medium text-slate-300">ISOWA</span>
+                </label>
+                
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('bhs', this.checked)">
+                  <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
+                  <span class="ms-2 text-sm font-medium text-slate-300">BHS</span>
+                </label>
+
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('yueli', this.checked)">
+                  <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-400"></div>
+                  <span class="ms-2 text-sm font-medium text-slate-300">YUELI</span>
+                </label>
+            </div>
+
+            <div class="flex items-center gap-3 border-t md:border-t-0 md:border-l border-slate-700 pt-3 md:pt-0 md:pl-4 w-full md:w-auto">
+                <label class="inline-flex items-center cursor-pointer ml-auto md:ml-0">
+                  <span class="mr-3 text-sm font-medium text-slate-300">แสดงตัวเลขบนจุดกราฟ:</span>
+                  <input type="checkbox" class="sr-only peer" onchange="toggleDataLabels(this.checked)">
+                  <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
             </div>
         </div>
 
@@ -282,7 +355,7 @@
             <div class="panel p-5 border-t-2 border-purple-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน & เฉลี่ยรายเดือน) Target 208
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน) Target 208
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartCoalWater"></canvas></div>
@@ -309,7 +382,7 @@
             <div class="panel p-5 border-t-2 border-emerald-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (ตัน/วัน)
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (kg/วัน)
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartOutput"></canvas></div>
@@ -329,7 +402,7 @@
             steam_bhs: "ไอน้ำต่อผลิต BHS (ML)",
             steam_yueli: "ไอน้ำต่อผลิต YUELI(ML)", 
             coal_cost_total: "Baht Total",
-            cw_total: "ถ่านต่อไอน้ำBHS", 
+            cw_total: "ถ่านต่อไอน้ำBHS", // Notice: Originally mapped to BHS in prompt, will map cw_total properly if possible, else rely on this
             cw_isowa: "ถ่านต่อไอน้ำ ISOWA",
             cw_bhs: "ถ่านต่อไอน้ำBHS",
             cw_yueli: "ถ่านต่อไอน้ำYUELI",
@@ -344,6 +417,11 @@
             output_yueli: "Output YUELI"   
         };
 
+        // TARGETS
+        const TARGET_STEAM = 302;
+        const TARGET_BAHT_OUTPUT = 0.188;
+        const TARGET_COAL_WATER = 208;
+
         const SHEET_ID = '1qS-AaBlEmWWlRaCV7_ESLCzBbB0JGVfKCBXrB8PpdCs';
         const GID = '48785430'; 
         const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
@@ -351,6 +429,25 @@
         let rawData = [];
         let currentData = [];
         const chartInstances = {};
+
+        // 🎛️ State การแสดงผล
+        let visibilityState = { total: true, isowa: false, bhs: false, yueli: false };
+        let showDataLabels = false;
+
+        // ลงทะเบียน Plugin DataLabels
+        Chart.register(ChartDataLabels);
+        Chart.defaults.set('plugins.datalabels', {
+            display: false,
+            color: '#e2e8f0',
+            font: { size: 10, family: "'Prompt', sans-serif" },
+            formatter: (value) => {
+                if(value === null || value === 0) return '';
+                return Number(value).toLocaleString('en-US', {maximumFractionDigits: 1});
+            },
+            anchor: 'end',
+            align: 'top',
+            offset: 4
+        });
 
         // 🎨 ชุดสี Neon สำหรับ Dark Theme
         const THEME = {
@@ -362,6 +459,53 @@
             cost:   { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.2)',  solid: '#f43f5e' }, // Rose
             price:  { border: '#6366f1', bg: 'rgba(99, 102, 241, 0.2)', solid: '#6366f1' }  // Indigo
         };
+
+        // Global Chart.js defaults for dark theme
+        Chart.defaults.color = '#cbd5e1';
+        Chart.defaults.font.family = "'Prompt', sans-serif";
+        const darkGrid = { color: '#334155', tickColor: '#334155' };
+
+        // ฟังก์ชันจัดการ Error Message
+        function showMessage(title, desc) {
+            document.getElementById('msg-title').innerText = title;
+            document.getElementById('msg-desc').innerText = desc;
+            document.getElementById('message-box').style.display = 'flex';
+            setTimeout(hideMessage, 5000);
+        }
+        function hideMessage() {
+            document.getElementById('message-box').style.display = 'none';
+        }
+
+        // ฟังก์ชันเปิด-ปิด เส้นกราฟ
+        function toggleSeries(machine, isVisible) {
+            visibilityState[machine] = isVisible;
+            Object.values(chartInstances).forEach(chart => {
+                if (!chart) return;
+                chart.data.datasets.forEach(dataset => {
+                    const lbl = dataset.label.toUpperCase();
+                    if (machine === 'total' && (lbl.includes('TOTAL') || lbl.includes('COST') || lbl.includes('PRICE'))) {
+                        dataset.hidden = !isVisible;
+                    }
+                    if (machine === 'isowa' && lbl.includes('ISOWA')) dataset.hidden = !isVisible;
+                    if (machine === 'bhs' && lbl.includes('BHS')) dataset.hidden = !isVisible;
+                    if (machine === 'yueli' && lbl.includes('YUELI')) dataset.hidden = !isVisible;
+                });
+                chart.update();
+            });
+        }
+
+        // ฟังก์ชันเปิด-ปิด ตัวเลขบนกราฟ
+        function toggleDataLabels(isVisible) {
+            showDataLabels = isVisible;
+            Object.values(chartInstances).forEach(chart => {
+                if (!chart) return;
+                if(chart.options.plugins.datalabels !== undefined) {
+                    // ใช้ 'auto' เพื่อป้องกันตัวเลขซ้อนกันจนมองไม่เห็น
+                    chart.options.plugins.datalabels.display = isVisible ? 'auto' : false;
+                }
+                chart.update();
+            });
+        }
 
         // ฟังก์ชันอ่านข้อมูลอัจฉริยะ (ช่วยจัดการค่า Error อย่าง #DIV/0!)
         const parseNum = (val) => {
@@ -385,11 +529,10 @@
         };
 
         const parseDate = (dateStr) => {
-            if (!dateStr || String(dateStr).trim() === '') return null; // ตรวจสอบค่าว่าง
+            if (!dateStr || String(dateStr).trim() === '') return null; 
             const parts = dateStr.split(/[-/]/);
             if (parts.length === 3) {
                 let day, month, year;
-                // เช็คว่ารูปแบบเป็น YYYY-MM-DD หรือ DD-MM-YYYY
                 if (parts[0].length === 4) {
                     year = parseInt(parts[0], 10);
                     month = parseInt(parts[1], 10) - 1;
@@ -400,9 +543,7 @@
                     year = parseInt(parts[2], 10);
                 }
                 
-                // รองรับปี พ.ศ. ให้แปลงเป็น ค.ศ.
                 if (year > 2500) year -= 543;
-                
                 return new Date(year, month, day);
             }
             return new Date(dateStr);
@@ -429,14 +570,11 @@
                 yearMonths.add(`${y}-${m}`);
             });
 
-            // เรียงลำดับปีจากใหม่ไปเก่า
             Array.from(years).sort((a,b) => b-a).forEach(y => {
-                // เพิ่มตัวเลือก "ทั้งปี"
                 const yearOption = new Option(`ทั้งปี ${y}`, `Y:${y}`);
                 yearOption.classList.add('font-bold', 'text-teal-400');
                 select.add(yearOption);
                 
-                // เพิ่มตัวเลือกรายเดือนของปีนั้นๆ
                 Array.from(yearMonths)
                     .filter(ym => ym.startsWith(y))
                     .sort()
@@ -456,11 +594,9 @@
             let startDate, endDate;
 
             if (type === 'Y') {
-                // เลือกทั้งปี
                 startDate = new Date(data, 0, 1);
                 endDate = new Date(data, 11, 31);
             } else {
-                // เลือกรายเดือน
                 const [year, month] = data.split('-');
                 startDate = new Date(year, month - 1, 1);
                 endDate = new Date(year, month, 0);
@@ -478,16 +614,29 @@
 
         function loadData() {
             document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-spinner').style.display = 'block';
+            document.getElementById('loading-text').innerText = 'กำลังเชื่อมต่อข้อมูล...';
+            document.getElementById('loading-subtext').innerText = 'กำลังดึงข้อมูลล่าสุดจาก Google Sheet';
+
             const noCacheUrl = csvUrl + "&t=" + new Date().getTime();
 
             Papa.parse(noCacheUrl, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
+                error: function(err) {
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    document.getElementById('loading-text').innerText = 'เกิดข้อผิดพลาด';
+                    document.getElementById('loading-text').classList.replace('text-slate-200', 'text-rose-500');
+                    document.getElementById('loading-subtext').innerText = err.message;
+                    showMessage("โหลดข้อมูลล้มเหลว", "ไม่สามารถดึงข้อมูลจาก Google Sheet ได้");
+                },
                 complete: function(results) {
                     if (results.data.length === 0) {
-                        alert("ไม่พบข้อมูล โปรดตรวจสอบการแชร์ไฟล์ Google Sheet");
-                        document.getElementById('loading-overlay').style.display = 'none';
+                        document.getElementById('loading-spinner').style.display = 'none';
+                        document.getElementById('loading-text').innerText = 'ไม่พบข้อมูล';
+                        document.getElementById('loading-subtext').innerText = 'โปรดตรวจสอบการแชร์ไฟล์ Google Sheet หรือ URL';
+                        showMessage("ไม่พบข้อมูล", "โปรดตรวจสอบการตั้งค่า Sheet");
                         return;
                     }
 
@@ -518,8 +667,7 @@
                         let out_y = extractCol(row, COLUMN_MAP.output_yueli);
                         let cost_t = extractCol(row, COLUMN_MAP.coal_cost_total);
 
-                        // 🛑 ป้องกันปัญหาวันที่เกิน/ซ้ำซ้อน: ถ้าผลผลิต ต้นทุน และสตีม เป็น 0 หรือ null หมด 
-                        // จะถือว่าเป็น "แถวว่างที่ถูกรันสูตรไว้ล่วงหน้า" ให้กรองทิ้งทันที
+                        // 🛑 ป้องกันปัญหาวันที่เกิน/ซ้ำซ้อน
                         const dataSumCheck = (steam_t || 0) + (cost_t || 0) + (out_t || 0) + (out_b || 0) + (out_y || 0);
                         if (dataSumCheck === 0) return null;
 
@@ -560,280 +708,281 @@
         function applyFilters() {
             const startStr = document.getElementById('start-date').value;
             const endStr = document.getElementById('end-date').value;
-            if (!startStr || !endStr) return;
+            
+            if (!startStr || !endStr) {
+                showMessage("แจ้งเตือน", "กรุณาเลือกวันที่เริ่มต้นและสิ้นสุด");
+                return;
+            }
 
             const startTime = new Date(startStr).setHours(0,0,0,0);
-            const endTime = new Date(endStr).setHours(23, 59, 59, 999); 
+            const endTime = new Date(endStr).setHours(23,59,59,999);
+            
+            if (startTime > endTime) {
+                showMessage("แจ้งเตือน", "วันที่เริ่มต้นต้องน้อยกว่าหรือเท่ากับวันที่สิ้นสุด");
+                return;
+            }
 
-            currentData = rawData.filter(item => {
-                return item.timeValue >= startTime && item.timeValue <= endTime;
-            });
+            currentData = rawData.filter(d => d.timeValue >= startTime && d.timeValue <= endTime);
+            
+            if (currentData.length === 0) {
+                showMessage("ไม่พบข้อมูล", "ไม่มีข้อมูลในช่วงเวลาที่เลือก");
+            }
+            
             updateDashboard();
         }
 
         function resetFilters() {
-            clearQuickMonth();
             if(rawData.length > 0) {
                 document.getElementById('start-date').value = formatDateToYYYYMMDD(rawData[0].dateObj);
                 document.getElementById('end-date').value = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
             }
-            applyFilters();
-        }
-
-        // =========================================================================
-        // 📸 ฟังก์ชันสำหรับแคปทั้งหน้าจอแดชบอร์ด (ทำงานเมื่อกดปุ่มลอยมุมขวาล่าง)
-        // =========================================================================
-        function downloadDashboard(event) {
-            const btn = event.currentTarget;
-            const originalContent = btn.innerHTML;
-            
-            // แสดงสถานะกำลังโหลดที่ปุ่ม
-            btn.innerHTML = `<svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-            btn.classList.add('cursor-wait');
-
-            setTimeout(() => {
-                const targetElement = document.getElementById('main-content');
-                
-                // สร้างกล่องจำลองซ่อนไว้ เพื่อให้การแคปภาพมีขอบสวยงาม ไม่ชิดขอบจอเกินไป
-                const wrapper = document.createElement('div');
-                wrapper.style.padding = '32px';
-                wrapper.style.backgroundColor = '#0f172a'; // ใช้สีพื้นหลังเดียวกับเว็บจริง
-                wrapper.style.position = 'absolute';
-                wrapper.style.left = '-9999px';
-                
-                const clone = targetElement.cloneNode(true);
-                clone.style.width = targetElement.offsetWidth + 'px'; // ล็อคความกว้างให้เท่ากับจอที่ดูอยู่
-                wrapper.appendChild(clone);
-                document.body.appendChild(wrapper);
-
-                // คัดลอกรูปจาก Canvas กราฟมาใส่ตัวจำลอง (Safety Check กัน Error กรณีไม่มี Canvas)
-                const originalCanvases = targetElement.getElementsByTagName('canvas');
-                const clonedCanvases = clone.getElementsByTagName('canvas');
-                for (let i = 0; i < originalCanvases.length; i++) {
-                    if(originalCanvases[i].width > 0 && originalCanvases[i].height > 0) {
-                        clonedCanvases[i].width = originalCanvases[i].width;
-                        clonedCanvases[i].height = originalCanvases[i].height;
-                        clonedCanvases[i].getContext('2d').drawImage(originalCanvases[i], 0, 0);
-                    }
-                }
-
-                html2canvas(wrapper, {
-                    backgroundColor: '#0f172a',
-                    scale: 2, // เพิ่มความคมชัดภาพเป็น 2 เท่า
-                    useCORS: true,
-                    logging: false
-                }).then(canvas => {
-                    // สร้างลิงก์และสั่งดาวน์โหลด
-                    const link = document.createElement('a');
-                    const dateStr = new Date().toISOString().slice(0, 10);
-                    link.download = `Coal_Analytics_${dateStr}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    
-                    // เคลียร์ค่าคืนกลับสภาวะปกติ
-                    document.body.removeChild(wrapper);
-                    btn.innerHTML = originalContent;
-                    btn.classList.remove('cursor-wait');
-                }).catch(err => {
-                    console.error('Error capturing dashboard:', err);
-                    alert('เกิดข้อผิดพลาดในการสร้างรูปภาพ กรุณาลองใหม่อีกครั้ง');
-                    document.body.removeChild(wrapper);
-                    btn.innerHTML = originalContent;
-                    btn.classList.remove('cursor-wait');
-                });
-            }, 100); 
-        }
-
-        Chart.defaults.font.family = "'Prompt', sans-serif";
-        Chart.defaults.color = '#94a3b8';
-        
-        function createOrUpdateChart(chartId, type, labels, datasets, options = {}) {
-            const ctx = document.getElementById(chartId).getContext('2d');
-            const defaultOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: { 
-                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 6, padding: 15, color: '#cbd5e1' } },
-                    tooltip: { 
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)', 
-                        titleColor: '#f8fafc', 
-                        bodyColor: '#cbd5e1', 
-                        borderColor: '#334155', 
-                        borderWidth: 1, 
-                        padding: 12, 
-                        cornerRadius: 8,
-                        callbacks: {
-                            // การจัดฟอร์แมตตัวเลขใน Tooltip ให้มีลูกน้ำ
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) { label += ': '; }
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(context.parsed.y);
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#64748b' } },
-                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#64748b' } }
-                }
-            };
-
-            const finalOptions = { ...defaultOptions, ...options };
-            if(chartInstances[chartId]) {
-                chartInstances[chartId].data.labels = labels;
-                chartInstances[chartId].data.datasets = datasets;
-                chartInstances[chartId].options = finalOptions;
-                chartInstances[chartId].update();
-            } else {
-                chartInstances[chartId] = new Chart(ctx, { type, data: { labels, datasets }, options: finalOptions });
-            }
+            clearQuickMonth();
+            currentData = [...rawData];
+            updateDashboard();
         }
 
         function updateDashboard() {
-            if(currentData.length === 0) return;
-
-            const labels = currentData.map(d => {
-                const parts = d.dateStr.split('/');
-                return `${parts[0]}/${parts[1]}`;
-            });
-
-            const sumValid = (arr) => arr.filter(v => v !== null).reduce((a, b) => a + b, 0);
-            const totalOut = sumValid(currentData.map(d => d.output_total));
-            const totalCost = sumValid(currentData.map(d => d.coal_cost_total));
-            const bahtPerOutput = totalOut > 0 ? (totalCost / totalOut) : 0; 
-            const validPrices = currentData.map(d => d.coal_price).filter(v => v !== null && v > 0);
-            const avgCoalPrice = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : 0;
-            const validCw = currentData.map(d => d.cw_total).filter(v => v !== null && v > 0);
-            const avgCw = validCw.length > 0 ? validCw.reduce((a, b) => a + b, 0) / validCw.length : 0;
-
-            document.getElementById('kpi-output').innerText = totalOut.toLocaleString(undefined, {maximumFractionDigits: 0});
-            document.getElementById('kpi-cost').innerText = totalCost.toLocaleString(undefined, {maximumFractionDigits: 0});
-            document.getElementById('kpi-baht-output').innerText = bahtPerOutput.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3});
-            document.getElementById('kpi-avg-coal-price').innerText = avgCoalPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('kpi-avg-coal-water').innerText = avgCw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
-            // คำนวณค่า Diff และ เปอร์เซ็นต์: ต้นทุน ฿ / Kg Output (Target: 0.188)
-            const targetBo = 0.188;
-            const diffBoEl = document.getElementById('kpi-baht-output-diff');
-            if (diffBoEl) {
-                if (bahtPerOutput > 0) {
-                    const diffBo = bahtPerOutput - targetBo;
-                    const diffBoPercent = (diffBo / targetBo) * 100;
-                    const signBo = diffBoPercent > 0 ? '+' : '';
-                    if (diffBo <= 0) {
-                        diffBoEl.innerHTML = `<span class="text-emerald-400">▼ ดีกว่าเป้า ${Math.abs(diffBo).toFixed(3)} (${diffBoPercent.toFixed(2)}%)</span>`;
-                    } else {
-                        diffBoEl.innerHTML = `<span class="text-rose-400">▲ เกินเป้า ${Math.abs(diffBo).toFixed(3)} (${signBo}${diffBoPercent.toFixed(2)}%)</span>`;
-                    }
-                } else {
-                    diffBoEl.innerHTML = `<span class="text-slate-500">-</span>`;
-                }
-            }
-
-            // คำนวณค่า Diff และ เปอร์เซ็นต์: ถ่านต่อไอน้ำ (Target: 208)
-            const targetCw = 208;
-            const diffCwEl = document.getElementById('kpi-avg-coal-water-diff');
-            if (diffCwEl) {
-                if (avgCw > 0) {
-                    const diffCw = avgCw - targetCw;
-                    const diffCwPercent = (diffCw / targetCw) * 100;
-                    const signCw = diffCwPercent > 0 ? '+' : '';
-                    if (diffCw <= 0) {
-                        diffCwEl.innerHTML = `<span class="text-emerald-400">▼ ดีกว่าเป้า ${Math.abs(diffCw).toFixed(2)} (${diffCwPercent.toFixed(2)}%)</span>`;
-                    } else {
-                        diffCwEl.innerHTML = `<span class="text-rose-400">▲ เกินเป้า ${Math.abs(diffCw).toFixed(2)} (${signCw}${diffCwPercent.toFixed(2)}%)</span>`;
-                    }
-                } else {
-                    diffCwEl.innerHTML = `<span class="text-slate-500">-</span>`;
-                }
-            }
-
-            const getAvg = (arr) => {
-                const valid = arr.filter(v => v !== null && v > 0);
-                return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
-            };
-
-            const updateSteamKPI = (id, value) => {
-                const card = document.getElementById(`${id}-card`);
-                const valEl = document.getElementById(id);
-                const diffEl = document.getElementById(`${id}-diff`);
-                if (value === 0 || isNaN(value)) {
-                    valEl.innerText = "-"; diffEl.innerText = "ไม่มีข้อมูล";
-                    card.className = "p-4 rounded-lg bg-slate-800 border border-slate-700 opacity-60";
-                    return;
-                }
-                valEl.innerText = value.toFixed(2);
-                const diff = value - 302;
-                const diffPercent = ((value - 302) / 302) * 100;
-                const sign = diffPercent > 0 ? '+' : '';
-                if (value <= 302) {
-                    card.className = "p-4 rounded-lg bg-emerald-900/20 border border-emerald-500/50";
-                    diffEl.innerText = `▼ ดีกว่าเป้า ${Math.abs(diff).toFixed(2)} (${diffPercent.toFixed(2)}%)`;
-                    diffEl.className = "text-xs mt-1 text-emerald-400 font-medium";
-                } else {
-                    card.className = "p-4 rounded-lg bg-rose-900/20 border border-rose-500/50";
-                    diffEl.innerText = `▲ เกินเป้า ${Math.abs(diff).toFixed(2)} (${sign}${diffPercent.toFixed(2)}%)`;
-                    diffEl.className = "text-xs mt-1 text-rose-400 font-medium";
-                }
-            };
-
-            updateSteamKPI('kpi-steam-total', getAvg(currentData.map(d => d.steam_total)));
-            updateSteamKPI('kpi-steam-isowa', getAvg(currentData.map(d => d.steam_isowa)));
-            updateSteamKPI('kpi-steam-bhs', getAvg(currentData.map(d => d.steam_bhs)));
-            updateSteamKPI('kpi-steam-yueli', getAvg(currentData.map(d => d.steam_yueli)));
-
-            const monthlyCwAvg = {};
-            currentData.forEach(d => {
-                const ym = `${d.year}-${d.month}`;
-                if (!monthlyCwAvg[ym]) monthlyCwAvg[ym] = { sum: 0, count: 0 };
-                if (d.cw_total !== null && d.cw_total > 0) {
-                    monthlyCwAvg[ym].sum += d.cw_total; monthlyCwAvg[ym].count += 1;
-                }
-            });
-            Object.keys(monthlyCwAvg).forEach(ym => monthlyCwAvg[ym].avg = monthlyCwAvg[ym].count > 0 ? (monthlyCwAvg[ym].sum / monthlyCwAvg[ym].count) : null);
-            const cwMonthlyAvgData = currentData.map(d => { const ym = `${d.year}-${d.month}`; return monthlyCwAvg[ym] ? monthlyCwAvg[ym].avg : null; });
-
-            createOrUpdateChart('chartSteam', 'line', labels, [
-                { label: 'ภาพรวม', data: currentData.map(d => d.steam_total), borderColor: THEME.total.border, backgroundColor: THEME.total.bg, borderWidth: 3, tension: 0.3, fill: true, spanGaps: true, pointRadius: 0 },
-                { label: 'ISOWA', data: currentData.map(d => d.steam_isowa), borderColor: THEME.isowa.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
-                { label: 'BHS', data: currentData.map(d => d.steam_bhs), borderColor: THEME.bhs.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
-                { label: 'YUELI', data: currentData.map(d => d.steam_yueli), borderColor: THEME.yueli.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 2 },
-                { label: 'Target (302)', data: currentData.map(() => 302), borderColor: THEME.target.border, borderWidth: 2, pointRadius: 0, borderDash: [5, 5], fill: false }
-            ]);
-
-            createOrUpdateChart('chartCost', 'bar', labels, [
-                { label: 'ต้นทุนถ่านหิน', data: currentData.map(d => d.coal_cost_total), backgroundColor: THEME.cost.solid, borderRadius: 4 }
-            ]);
-
-            createOrUpdateChart('chartCoalWater', 'bar', labels, [
-                { label: 'รายวัน (Daily)', data: currentData.map(d => d.cw_total), backgroundColor: THEME.bhs.solid, borderRadius: 4, order: 3 },
-                { label: 'เฉลี่ยรายเดือน', data: cwMonthlyAvgData, borderColor: THEME.yueli.solid, borderWidth: 3, type: 'line', tension: 0, pointRadius: 0, borderDash: [5, 5], fill: false, order: 2 },
-                { label: 'Target (208)', data: currentData.map(() => 208), borderColor: THEME.target.border, borderWidth: 2, type: 'line', pointRadius: 0, borderDash: [5, 5], fill: false, order: 1 }
-            ]);
-
-            createOrUpdateChart('chartBahtOutput', 'bar', labels, [
-                { label: 'ISOWA', data: currentData.map(d => d.bo_isowa), backgroundColor: THEME.isowa.solid },
-                { label: 'BHS', data: currentData.map(d => d.bo_bhs), backgroundColor: THEME.bhs.solid },
-                { label: 'YUELI', data: currentData.map(d => d.bo_yueli), backgroundColor: THEME.yueli.solid },
-                { label: 'ภาพรวม', data: currentData.map(d => d.bo_total), type: 'line', borderColor: THEME.total.border, borderWidth: 2, tension: 0.3, spanGaps: true, pointRadius: 0 }
-            ]);
-
-            createOrUpdateChart('chartCoalPrice', 'line', labels, [
-                { label: 'ราคาถ่านหิน (บาท)', data: currentData.map(d => d.coal_price), borderColor: THEME.price.border, backgroundColor: THEME.price.bg, borderWidth: 3, fill: true, tension: 0.3, spanGaps: true, pointRadius: 0 }
-            ]);
-
-            createOrUpdateChart('chartOutput', 'bar', labels, [
-                { label: 'ISOWA', data: currentData.map(d => d.output_isowa), backgroundColor: THEME.isowa.solid },
-                { label: 'BHS', data: currentData.map(d => d.output_bhs), backgroundColor: THEME.bhs.solid },
-                { label: 'YUELI', data: currentData.map(d => d.output_yueli), backgroundColor: THEME.yueli.solid }
-            ], { scales: { x: { stacked: true }, y: { stacked: true } } });
+            updateKPIs();
+            renderCharts();
         }
 
-        window.onload = loadData;
+        // Utility for average
+        const calcAvg = (arr, key) => {
+            const valid = arr.filter(d => d[key] !== null && d[key] > 0);
+            return valid.length ? valid.reduce((sum, d) => sum + d[key], 0) / valid.length : 0;
+        };
+
+        function updateKPIs() {
+            if (currentData.length === 0) {
+                const kpis = ['output', 'cost', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
+                kpis.forEach(id => {
+                    const el = document.getElementById(`kpi-${id}`);
+                    if (el) el.innerText = '0';
+                    const diffEl = document.getElementById(`kpi-${id}-diff`);
+                    if (diffEl) { diffEl.innerText = '-'; diffEl.className = 'text-xs mt-1 font-medium'; }
+                });
+                return;
+            }
+
+            // Sums
+            const sumOutput = currentData.reduce((sum, d) => sum + (d.output_total || 0), 0);
+            const sumCost = currentData.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
+            
+            // Averages
+            const avgBahtOutput = calcAvg(currentData, 'bo_total');
+            const avgCoalPrice = calcAvg(currentData, 'coal_price');
+            const avgCoalWater = calcAvg(currentData, 'cw_total');
+            
+            const avgSteamTotal = calcAvg(currentData, 'steam_total');
+            const avgSteamIsowa = calcAvg(currentData, 'steam_isowa');
+            const avgSteamBhs = calcAvg(currentData, 'steam_bhs');
+            const avgSteamYueli = calcAvg(currentData, 'steam_yueli');
+
+            // Format Helper
+            const fmt = (num, dec = 0) => num.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
+            // Apply to DOM
+            document.getElementById('kpi-output').innerText = fmt(sumOutput);
+            document.getElementById('kpi-cost').innerText = fmt(sumCost);
+            document.getElementById('kpi-baht-output').innerText = fmt(avgBahtOutput, 3);
+            document.getElementById('kpi-avg-coal-price').innerText = fmt(avgCoalPrice, 2);
+            document.getElementById('kpi-avg-coal-water').innerText = fmt(avgCoalWater, 2);
+
+            document.getElementById('kpi-steam-total').innerText = fmt(avgSteamTotal, 1);
+            document.getElementById('kpi-steam-isowa').innerText = fmt(avgSteamIsowa, 1);
+            document.getElementById('kpi-steam-bhs').innerText = fmt(avgSteamBhs, 1);
+            document.getElementById('kpi-steam-yueli').innerText = fmt(avgSteamYueli, 1);
+
+            // Diff coloring logic (Lower is generally better for costs and usage)
+            const styleDiff = (actual, target, elementId, inverse = false) => {
+                const el = document.getElementById(elementId);
+                if (!el || actual === 0) return;
+                const diff = actual - target;
+                const percent = (Math.abs(diff) / target) * 100;
+                let isGood = diff <= 0; // default: lower is better
+                if (inverse) isGood = diff >= 0; // higher is better
+
+                el.innerText = `${diff > 0 ? '+' : ''}${diff.toFixed(3)} (${percent.toFixed(1)}%)`;
+                if (isGood) {
+                    el.className = 'text-xs mt-1 font-medium text-emerald-400';
+                } else {
+                    el.className = 'text-xs mt-1 font-medium text-rose-400';
+                }
+            };
+
+            styleDiff(avgBahtOutput, TARGET_BAHT_OUTPUT, 'kpi-baht-output-diff');
+            styleDiff(avgCoalWater, TARGET_COAL_WATER, 'kpi-avg-coal-water-diff');
+            
+            styleDiff(avgSteamTotal, TARGET_STEAM, 'kpi-steam-total-diff');
+            styleDiff(avgSteamIsowa, TARGET_STEAM, 'kpi-steam-isowa-diff');
+            styleDiff(avgSteamBhs, TARGET_STEAM, 'kpi-steam-bhs-diff');
+            styleDiff(avgSteamYueli, TARGET_STEAM, 'kpi-steam-yueli-diff');
+        }
+
+        function createOrUpdateChart(ctxId, config) {
+            const ctx = document.getElementById(ctxId);
+            if (!ctx) return;
+            if (chartInstances[ctxId]) {
+                chartInstances[ctxId].destroy();
+            }
+
+            // แทรกการตั้งค่า DataLabels
+            if(!config.options.plugins) config.options.plugins = {};
+            config.options.plugins.datalabels = { display: showDataLabels ? 'auto' : false };
+
+            chartInstances[ctxId] = new Chart(ctx, config);
+        }
+
+        function renderCharts() {
+            const labels = currentData.map(d => d.dateStr);
+
+            // Chart 1: Steam Usage (Line)
+            createOrUpdateChart('chartSteam', {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'ISOWA', data: currentData.map(d => d.steam_isowa), borderColor: THEME.isowa.solid, backgroundColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: currentData.map(d => d.steam_bhs), borderColor: THEME.bhs.solid, backgroundColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: currentData.map(d => d.steam_yueli), borderColor: THEME.yueli.solid, backgroundColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
+                        { label: 'Total Avg', data: currentData.map(d => d.steam_total), borderColor: THEME.total.solid, backgroundColor: THEME.total.solid, borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: 'Target (302)', data: currentData.map(() => TARGET_STEAM), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 2: Cost (Bar)
+            createOrUpdateChart('chartCost', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Coal Cost (Baht)',
+                        data: currentData.map(d => d.coal_cost_total),
+                        backgroundColor: THEME.cost.bg,
+                        borderColor: THEME.cost.border,
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        hidden: !visibilityState.total
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: true } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Baht: ${ctx.raw.toLocaleString()}` } } } }
+            });
+
+            // Chart 3: Coal / Water (Line)
+            createOrUpdateChart('chartCoalWater', {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Total Avg', data: currentData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: 'Target (208)', data: currentData.map(() => TARGET_COAL_WATER), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 4: Baht / Output (Line)
+            createOrUpdateChart('chartBahtOutput', {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'ISOWA', data: currentData.map(d => d.bo_isowa), borderColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: currentData.map(d => d.bo_bhs), borderColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: currentData.map(d => d.bo_yueli), borderColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
+                        { label: 'Total Avg', data: currentData.map(d => d.bo_total), borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: `Target (${TARGET_BAHT_OUTPUT})`, data: currentData.map(() => TARGET_BAHT_OUTPUT), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 5: Coal Price (Line)
+            createOrUpdateChart('chartCoalPrice', {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Coal Price (Baht)',
+                        data: currentData.map(d => d.coal_price),
+                        borderColor: THEME.price.solid,
+                        backgroundColor: THEME.price.bg,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        hidden: !visibilityState.total
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { display: false } } }
+            });
+
+            // Chart 6: Output (Stacked Bar)
+            createOrUpdateChart('chartOutput', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'ISOWA', data: currentData.map(d => d.output_isowa), backgroundColor: THEME.isowa.solid, stack: 'Stack 0', hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: currentData.map(d => d.output_bhs), backgroundColor: THEME.bhs.solid, stack: 'Stack 0', hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: currentData.map(d => d.output_yueli), backgroundColor: THEME.yueli.solid, stack: 'Stack 0', hidden: !visibilityState.yueli },
+                        { type: 'line', label: 'Total Output', data: currentData.map(d => d.output_total), borderColor: THEME.total.solid, borderWidth: 2, pointRadius: 0, fill: false, hidden: !visibilityState.total }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { x: { grid: darkGrid, stacked: true }, y: { grid: darkGrid, stacked: true, beginAtZero: true } }, 
+                    plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } } 
+                }
+            });
+        }
+
+        // ฟังก์ชันแคปหน้าจอ
+        function downloadDashboard(event) {
+            const btn = document.getElementById('download-btn');
+            const originalHTML = btn.innerHTML;
+            
+            // เปลี่ยนสถานะปุ่ม
+            btn.innerHTML = `<svg class="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            btn.classList.add('pointer-events-none', 'opacity-80');
+
+            // ซ่อนปุ่มต่างๆ ก่อนแคป
+            const controls = document.getElementById('filter-controls');
+            if(controls) controls.style.opacity = '0.3';
+            
+            setTimeout(() => {
+                const target = document.getElementById('main-content');
+                
+                html2canvas(target, {
+                    scale: 2, // ความละเอียดสูง
+                    backgroundColor: '#0f172a', // สีพื้นหลังตรงกับ body
+                    logging: false,
+                    useCORS: true
+                }).then(canvas => {
+                    // สร้างลิงก์ดาวน์โหลด
+                    const link = document.createElement('a');
+                    const dateStr = new Date().toISOString().slice(0,10);
+                    link.download = `Coal_Analytics_${dateStr}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                }).catch(err => {
+                    console.error("Capture failed:", err);
+                    showMessage("ข้อผิดพลาด", "ไม่สามารถบันทึกรูปภาพได้");
+                }).finally(() => {
+                    // คืนค่าปุ่ม
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('pointer-events-none', 'opacity-80');
+                    if(controls) controls.style.opacity = '1';
+                });
+            }, 500); // รอ UI อัปเดตก่อนแคป
+        }
+
+        // เริ่มต้นการทำงานเมื่อโหลดหน้า
+        window.onload = function() {
+            loadData();
+        };
+
     </script>
 </body>
 </html>
