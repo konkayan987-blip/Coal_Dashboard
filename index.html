@@ -483,7 +483,7 @@
                 if (!chart) return;
                 chart.data.datasets.forEach(dataset => {
                     const lbl = dataset.label.toUpperCase();
-                    if (machine === 'total' && (lbl.includes('TOTAL') || lbl.includes('COST') || lbl.includes('PRICE'))) {
+                    if (machine === 'total' && !dataset.totalOnly && lbl.includes('TOTAL')) {
                         dataset.hidden = !isVisible;
                     }
                     if (machine === 'isowa' && lbl.includes('ISOWA')) dataset.hidden = !isVisible;
@@ -864,7 +864,8 @@
                         borderColor: THEME.cost.border,
                         borderWidth: 1,
                         borderRadius: 4,
-                        hidden: !visibilityState.total
+                        totalOnly: true,
+                        hidden: false
                     }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: true } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Baht: ${ctx.raw.toLocaleString()}` } } } }
@@ -876,7 +877,7 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Total Avg', data: currentData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: 'Total Avg', data: currentData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, totalOnly: true, hidden: false },
                         { label: 'Target (208)', data: currentData.map(() => TARGET_COAL_WATER), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
                     ]
                 },
@@ -912,7 +913,8 @@
                         fill: true,
                         tension: 0.4,
                         pointRadius: 2,
-                        hidden: !visibilityState.total
+                        totalOnly: true,
+                        hidden: false
                     }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { display: false } } }
