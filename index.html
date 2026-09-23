@@ -277,7 +277,8 @@
                         <p class="text-3xl font-bold text-indigo-400 flex items-baseline gap-1">
                             <span class="text-xl">฿</span> <span id="kpi-avg-coal-price">0.00</span>
                         </p>
-                        <p class="text-xs text-slate-500 mt-1">เฉลี่ยในช่วงเวลาที่เลือก</p>
+                        <p class="text-xs text-slate-500 mt-1">Target: ฿2.40 / kg</p>
+                        <p class="text-xs mt-1 font-medium" id="kpi-avg-coal-price-diff">-</p>
                     </div>
                     <div class="p-2 bg-indigo-500/10 rounded border border-indigo-500/20">
                         <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
@@ -373,7 +374,7 @@
             <div class="panel p-5 border-t-2 border-indigo-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน)
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน) Target ฿2.40/kg
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartCoalPrice"></canvas></div>
@@ -421,6 +422,7 @@
         const TARGET_STEAM = 302;
         const TARGET_BAHT_OUTPUT = 0.188;
         const TARGET_COAL_WATER = 208;
+        const TARGET_COAL_PRICE = 2.40;
 
         const SHEET_ID = '1qS-AaBlEmWWlRaCV7_ESLCzBbB0JGVfKCBXrB8PpdCs';
         const GID = '48785430'; 
@@ -802,7 +804,7 @@
                 let isGood = diff <= 0; // default: lower is better
                 if (inverse) isGood = diff >= 0; // higher is better
 
-                el.innerText = `${diff > 0 ? '+' : ''}${diff.toFixed(3)} (${percent.toFixed(1)}%)`;
+                el.innerText = `Diff: ${diff > 0 ? '+' : ''}${diff.toFixed(3)} | ${diff > 0 ? '+' : ''}${percent.toFixed(1)}%`;
                 if (isGood) {
                     el.className = 'text-xs mt-1 font-medium text-emerald-400';
                 } else {
@@ -812,6 +814,7 @@
 
             styleDiff(avgBahtOutput, TARGET_BAHT_OUTPUT, 'kpi-baht-output-diff');
             styleDiff(avgCoalWater, TARGET_COAL_WATER, 'kpi-avg-coal-water-diff');
+            styleDiff(avgCoalPrice, TARGET_COAL_PRICE, 'kpi-avg-coal-price-diff');
             
             styleDiff(avgSteamTotal, TARGET_STEAM, 'kpi-steam-total-diff');
             styleDiff(avgSteamIsowa, TARGET_STEAM, 'kpi-steam-isowa-diff');
@@ -905,19 +908,47 @@
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Coal Price (Baht)',
-                        data: currentData.map(d => d.coal_price),
-                        borderColor: THEME.price.solid,
-                        backgroundColor: THEME.price.bg,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 2,
-                        totalOnly: true,
-                        hidden: false
-                    }]
+                    datasets: [
+                        {
+                            label: 'Coal Price (Baht/kg)',
+                            data: currentData.map(d => d.coal_price),
+                            borderColor: THEME.price.solid,
+                            backgroundColor: THEME.price.bg,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            totalOnly: true,
+                            hidden: false
+                        },
+                        {
+                            label: 'Target (฿2.40/kg)',
+                            data: currentData.map(() => TARGET_COAL_PRICE),
+                            borderColor: THEME.target.solid,
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            hidden: false,
+                            datalabels: { display: false }
+                        }
+                    ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { display: false } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: darkGrid },
+                        y: { grid: darkGrid, beginAtZero: false }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `฿/kg: ${Number(ctx.raw).toFixed(2)}`
+                            }
+                        }
+                    }
+                }
             });
 
             // Chart 6: Output (Stacked Bar)
