@@ -35,6 +35,7 @@
         /* เอฟเฟกต์ข้อความไล่สี */
         .text-gradient-cyan {
             background: linear-gradient(to right, #2dd4bf, #0ea5e9);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -152,7 +153,40 @@
                         <option value="">-- ระบุช่วงวันเอง --</option>
                     </select>
                 </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 text-sm font-medium px-1">แสดงตาม:</span>
+                    <select id="time-granularity" class="dark-input" onchange="changeTimeGranularity()">
+                        <option value="day">รายวัน</option>
+                        <option value="month" selected>รายเดือน</option>
+                        <option value="year">รายปี</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 text-sm font-medium px-1">ปี:</span>
+                    <select id="year-filter" class="dark-input" onchange="applyYearFilter()">
+                        <option value="">ทุกปี</option>
+                    </select>
+                </div>
                 
+                <div class="w-px h-6 bg-slate-700 mx-1 hidden sm:block"></div>
+
+                <!-- กรองเป็นช่วงเดือน เช่น มกราคม 2026 ถึง มีนาคม 2026 -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-slate-400 text-sm font-medium px-1">ช่วงเดือน:</span>
+                    <select id="month-range-start" class="dark-input" onchange="clearDateRange()">
+                        <option value="">เดือนเริ่มต้น</option>
+                    </select>
+                    <span class="text-slate-500 text-sm">ถึง</span>
+                    <select id="month-range-end" class="dark-input" onchange="clearDateRange()">
+                        <option value="">เดือนสิ้นสุด</option>
+                    </select>
+                    <button onclick="applyMonthRange()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-2 rounded transition-colors">
+                        ดูช่วงเดือน
+                    </button>
+                </div>
+
                 <div class="w-px h-6 bg-slate-700 mx-1 hidden sm:block"></div>
                 
                 <div class="flex items-center gap-2">
@@ -223,7 +257,7 @@
         </div>
 
         <!-- Top KPI Summary (5 กล่อง) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <!-- Output (Green) -->
             <div class="panel p-5 border border-emerald-500/30 relative overflow-hidden">
                 <div class="flex justify-between items-start">
@@ -252,6 +286,20 @@
                 </div>
             </div>
 
+            <!-- Coal Usage (Orange) -->
+            <div class="panel p-5 border border-orange-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ปริมาณการใช้ถ่านหินรวม</p>
+                        <p class="text-3xl font-bold text-orange-400" id="kpi-coal-usage">0</p>
+                        <p class="text-xs text-slate-500 mt-1">หน่วย: กิโลกรัม (kg)</p>
+                    </div>
+                    <div class="p-2 bg-orange-500/10 rounded border border-orange-500/20">
+                        <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m0-18c-4 0-7 2-7 5 0 2 1.5 3.5 4 4-2.5.5-4 2-4 4 0 3 3 5 7 5m0-18c4 0 7 2 7 5 0 2-1.5 3.5-4 4 2.5.5 4 2 4 4 0 3-3 5-7 5"></path></svg>
+                    </div>
+                </div>
+            </div>
+
             <!-- Baht / Output (Yellow/Amber) -->
             <div class="panel p-5 border border-amber-500/30 relative overflow-hidden">
                 <div class="flex justify-between items-start">
@@ -273,9 +321,9 @@
             <div class="panel p-5 border border-indigo-500/30 relative overflow-hidden">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="text-sm font-medium text-slate-400 mb-1">ราคาถ่านหินเฉลี่ย</p>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ราคาถ่านหินเฉลี่ยถ่วงน้ำหนัก</p>
                         <p class="text-3xl font-bold text-indigo-400 flex items-baseline gap-1">
-                            <span class="text-xl">฿</span> <span id="kpi-avg-coal-price">0.00</span>
+                            <span class="text-xl">฿</span> <span id="kpi-avg-coal-price">0.000000</span>
                         </p>
                         <p class="text-xs text-slate-500 mt-1">Target: ฿2.40 / kg</p>
                         <p class="text-xs mt-1 font-medium" id="kpi-avg-coal-price-diff">-</p>
@@ -299,6 +347,34 @@
                         <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="panel p-4 border-l-4 border-amber-500 bg-slate-800/80">
+            <h2 class="text-sm font-semibold text-slate-300 mb-2">สูตรการคำนวณ Target เทียบ Actual</h2>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs text-slate-400">
+                <p><span class="text-orange-300 font-medium">ปริมาณถ่านหิน (kg)</span> = ต้นทุนถ่านหิน (บาท) ÷ ราคาถ่านหิน (บาท/kg)</p>
+                <p><span class="text-amber-300 font-medium">Actual (บาท/kg Output)</span> = ต้นทุนถ่านหินรวม (บาท) ÷ Output รวม (kg)</p>
+                <p><span class="text-indigo-300 font-medium">ราคาเฉลี่ยถ่วงน้ำหนัก</span> = ต้นทุนถ่านหินรวม ÷ ปริมาณถ่านหินรวม</p>
+                <p><span class="text-rose-300 font-medium">ต้นทุนเป้าหมาย</span> = 0.188 × Output รวม (kg)</p>
+                <p><span class="text-emerald-300 font-medium">Coal% Saving</span> = (ต้นทุนเป้าหมาย - ต้นทุนจริง) ÷ ต้นทุนเป้าหมาย × 100</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="panel p-5 border border-fuchsia-500/70">
+                <h2 class="text-base font-semibold text-fuchsia-300 mb-3">สัดส่วนต้นทุนแต่ละเครื่อง (%)</h2>
+                <div class="chart-container"><canvas id="chartCostShare"></canvas></div>
+            </div>
+            <div class="panel p-5 border border-amber-500/70">
+                <h2 class="text-base font-semibold text-amber-300 mb-3">Target เทียบ Actual (ต้นทุนรวม)</h2>
+                <div class="chart-container"><canvas id="chartTotalCostTarget"></canvas></div>
+                <p id="cost-saving-summary" class="text-center text-sm font-medium text-emerald-400 mt-2">-</p>
+            </div>
+            <div class="panel p-5 border border-emerald-500/70">
+                <h2 class="text-base font-semibold text-emerald-300 mb-3">Coal% Saving</h2>
+                <div class="chart-container"><canvas id="chartSavingGauge"></canvas></div>
+                <p id="saving-formula-summary" class="text-xs text-slate-400 text-center mt-2">-</p>
             </div>
         </div>
 
@@ -338,7 +414,7 @@
             <div class="panel p-5 border-t-2 border-teal-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ
+                        <span class="w-2 h-2 rounded-full bg-teal-500"></span> 1. การใช้สตีมต่อการผลิตกระดาษ 302 ml/kg Output (รายวัน ) 
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartSteam"></canvas></div>
@@ -371,10 +447,20 @@
                 <div class="chart-container"><canvas id="chartBahtOutput"></canvas></div>
             </div>
 
+            <div class="panel p-5 border-t-2 border-orange-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-orange-500"></span> 5. วิเคราะห์ Target เทียบ Actual (฿/Kg Output)
+                    </h2>
+                    <span class="text-xs text-slate-500">Target ฿0.188/kg</span>
+                </div>
+                <div class="chart-container"><canvas id="chartBahtOutputTarget"></canvas></div>
+            </div>
+
             <div class="panel p-5 border-t-2 border-indigo-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 5. ราคาถ่านหิน (ราคาเฉลี่ย/วัน) Target ฿2.40/kg
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 6. ราคาถ่านหิน (ราคาเฉลี่ย/วัน) Target ฿2.40/kg
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartCoalPrice"></canvas></div>
@@ -383,10 +469,30 @@
             <div class="panel p-5 border-t-2 border-emerald-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 6. ปริมาณ Output (kg/วัน)
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 7. ปริมาณ Output (kg/วัน)
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartOutput"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-cyan-500 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-500"></span> 7. แนวโน้มการใช้ถ่านหินต่อการผลิตไอน้ำ (รายเดือน) Target 208
+                    </h2>
+                    <span class="text-xs text-slate-500">ค่าเฉลี่ยรายเดือน</span>
+                </div>
+                <div class="chart-container"><canvas id="chartCoalWaterMonthly"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-indigo-500 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 8. แนวโน้มราคาถ่านหินเฉลี่ยรายเดือน Target ฿2.40/kg
+                    </h2>
+                    <span class="text-xs text-slate-500">เปรียบเทียบราคาแต่ละเดือน</span>
+                </div>
+                <div class="chart-container"><canvas id="chartCoalPriceMonthly"></canvas></div>
             </div>
 
         </div>
@@ -431,6 +537,7 @@
         let rawData = [];
         let currentData = [];
         const chartInstances = {};
+        let timeGranularity = 'month';
 
         // 🎛️ State การแสดงผล
         let visibilityState = { total: true, isowa: false, bhs: false, yueli: false };
@@ -560,7 +667,13 @@
         // ฟังก์ชันสร้างตัวเลือกด่วน (เดือน และ ทั้งปี)
         function populateQuickMonth() {
             const select = document.getElementById('quick-month');
+            const yearFilter = document.getElementById('year-filter');
+            const rangeStart = document.getElementById('month-range-start');
+            const rangeEnd = document.getElementById('month-range-end');
             select.innerHTML = '<option value="">-- ระบุช่วงวันเอง --</option>';
+            if (yearFilter) yearFilter.innerHTML = '<option value="">ทุกปี</option>';
+            if (rangeStart) rangeStart.innerHTML = '<option value="">เดือนเริ่มต้น</option>';
+            if (rangeEnd) rangeEnd.innerHTML = '<option value="">เดือนสิ้นสุด</option>';
             
             const years = new Set();
             const yearMonths = new Set();
@@ -573,6 +686,7 @@
             });
 
             Array.from(years).sort((a,b) => b-a).forEach(y => {
+                if (yearFilter) yearFilter.add(new Option(String(y), String(y)));
                 const yearOption = new Option(`ทั้งปี ${y}`, `Y:${y}`);
                 yearOption.classList.add('font-bold', 'text-teal-400');
                 select.add(yearOption);
@@ -586,6 +700,33 @@
                         select.add(new Option(`  └ ${monthName} ${year}`, `M:${ym}`));
                     });
             });
+
+            // สร้างรายการเดือนสำหรับตัวกรองแบบช่วงเดือน
+            Array.from(yearMonths).sort().forEach(ym => {
+                const [year, month] = ym.split('-');
+                const monthName = monthNamesThai[parseInt(month) - 1];
+                const label = `${monthName} ${year}`;
+                if (rangeStart) rangeStart.add(new Option(label, ym));
+                if (rangeEnd) rangeEnd.add(new Option(label, ym));
+            });
+        }
+
+        function changeTimeGranularity() {
+            timeGranularity = document.getElementById('time-granularity').value;
+            renderCharts();
+        }
+
+        function applyYearFilter() {
+            const year = document.getElementById('year-filter').value;
+            if (!year) {
+                resetFilters();
+                return;
+            }
+
+            document.getElementById('start-date').value = `${year}-01-01`;
+            document.getElementById('end-date').value = `${year}-12-31`;
+            clearQuickMonth();
+            applyFilters();
         }
 
         function applyQuickMonth() {
@@ -612,6 +753,34 @@
 
         function clearQuickMonth() {
             document.getElementById('quick-month').value = '';
+        }
+
+        function clearDateRange() {
+            document.getElementById('quick-month').value = '';
+        }
+
+        // กรองข้อมูลแบบช่วงเดือน เช่น มกราคม 2026 ถึง มีนาคม 2026
+        function applyMonthRange() {
+            const startMonth = document.getElementById('month-range-start').value;
+            const endMonth = document.getElementById('month-range-end').value;
+
+            if (!startMonth || !endMonth) {
+                showMessage('แจ้งเตือน', 'กรุณาเลือกเดือนเริ่มต้นและเดือนสิ้นสุด');
+                return;
+            }
+
+            const startDate = new Date(Number(startMonth.slice(0,4)), Number(startMonth.slice(5,7)) - 1, 1);
+            const endDate = new Date(Number(endMonth.slice(0,4)), Number(endMonth.slice(5,7)), 0);
+
+            if (startDate > endDate) {
+                showMessage('แจ้งเตือน', 'เดือนเริ่มต้นต้องไม่มากกว่าเดือนสิ้นสุด');
+                return;
+            }
+
+            document.getElementById('start-date').value = formatDateToYYYYMMDD(startDate);
+            document.getElementById('end-date').value = formatDateToYYYYMMDD(endDate);
+            document.getElementById('quick-month').value = '';
+            applyFilters();
         }
 
         function loadData() {
@@ -739,6 +908,7 @@
                 document.getElementById('end-date').value = formatDateToYYYYMMDD(rawData[rawData.length - 1].dateObj);
             }
             clearQuickMonth();
+            document.getElementById('year-filter').value = '';
             currentData = [...rawData];
             updateDashboard();
         }
@@ -754,9 +924,61 @@
             return valid.length ? valid.reduce((sum, d) => sum + d[key], 0) / valid.length : 0;
         };
 
+        const calcCoalUsage = (arr) => arr.reduce((sum, d) => {
+            if (!d.coal_cost_total || !d.coal_price || d.coal_price <= 0) return sum;
+            return sum + (d.coal_cost_total / d.coal_price);
+        }, 0);
+
+        const calcBahtOutputActual = (arr) => {
+            const totalCost = arr.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
+            const totalOutput = arr.reduce((sum, d) => sum + (d.output_total || 0), 0);
+            return totalOutput > 0 ? totalCost / totalOutput : calcAvg(arr, 'bo_total');
+        };
+
+        function getChartData() {
+            if (timeGranularity === 'day') {
+                return currentData.map(row => ({
+                    ...row,
+                    periodLabel: row.dateStr,
+                    coal_usage: calcCoalUsage([row]),
+                    baht_output_actual: calcBahtOutputActual([row])
+                }));
+            }
+
+            const groups = {};
+            currentData.forEach(row => {
+                const key = timeGranularity === 'year'
+                    ? String(row.year)
+                    : `${row.year}-${String(row.month).padStart(2, '0')}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(row);
+            });
+
+            return Object.keys(groups).sort().map(key => {
+                const rows = groups[key];
+                const first = rows[0];
+                const label = timeGranularity === 'year'
+                    ? `พ.ศ. ${first.year + 543}`
+                    : `${monthNamesThai[first.month - 1]} ${first.year + 543}`;
+                const averageFields = [
+                    'steam_total', 'steam_isowa', 'steam_bhs', 'steam_yueli',
+                    'cw_total', 'cw_isowa', 'cw_bhs', 'cw_yueli',
+                    'bo_total', 'bo_isowa', 'bo_bhs', 'bo_yueli', 'coal_price'
+                ];
+                const sumFields = ['coal_cost_total', 'output_total', 'output_isowa', 'output_bhs', 'output_yueli'];
+                const result = { ...first, dateStr: label, periodLabel: label };
+                averageFields.forEach(field => { result[field] = calcAvg(rows, field) || null; });
+                sumFields.forEach(field => { result[field] = rows.reduce((sum, row) => sum + (row[field] || 0), 0); });
+                result.coal_usage = calcCoalUsage(rows);
+                result.coal_price = result.coal_usage > 0 ? result.coal_cost_total / result.coal_usage : null;
+                result.baht_output_actual = calcBahtOutputActual(rows);
+                return result;
+            });
+        }
+
         function updateKPIs() {
             if (currentData.length === 0) {
-                const kpis = ['output', 'cost', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
+                const kpis = ['output', 'cost', 'coal-usage', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
                 kpis.forEach(id => {
                     const el = document.getElementById(`kpi-${id}`);
                     if (el) el.innerText = '0';
@@ -769,10 +991,11 @@
             // Sums
             const sumOutput = currentData.reduce((sum, d) => sum + (d.output_total || 0), 0);
             const sumCost = currentData.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
+            const sumCoalUsage = calcCoalUsage(currentData);
             
             // Averages
-            const avgBahtOutput = calcAvg(currentData, 'bo_total');
-            const avgCoalPrice = calcAvg(currentData, 'coal_price');
+            const avgBahtOutput = calcBahtOutputActual(currentData);
+            const avgCoalPrice = sumCoalUsage > 0 ? sumCost / sumCoalUsage : calcAvg(currentData, 'coal_price');
             const avgCoalWater = calcAvg(currentData, 'cw_total');
             
             const avgSteamTotal = calcAvg(currentData, 'steam_total');
@@ -786,6 +1009,7 @@
             // Apply to DOM
             document.getElementById('kpi-output').innerText = fmt(sumOutput);
             document.getElementById('kpi-cost').innerText = fmt(sumCost);
+            document.getElementById('kpi-coal-usage').innerText = fmt(sumCoalUsage, 1);
             document.getElementById('kpi-baht-output').innerText = fmt(avgBahtOutput, 3);
             document.getElementById('kpi-avg-coal-price').innerText = fmt(avgCoalPrice, 2);
             document.getElementById('kpi-avg-coal-water').innerText = fmt(avgCoalWater, 2);
@@ -836,8 +1060,143 @@
             chartInstances[ctxId] = new Chart(ctx, config);
         }
 
+        function getCostSummary() {
+            const machineKeys = ['isowa', 'bhs', 'yueli'];
+            const machineLabels = ['ISOWA', 'BHS', 'YUELI'];
+            const machineColors = ['#ef476f', '#3b82f6', '#f59e0b'];
+            const machineCosts = machineKeys.map(key => currentData.reduce((sum, row) => {
+                const rate = row[`bo_${key}`];
+                const output = row[`output_${key}`];
+                return sum + (rate > 0 && output > 0 ? rate * output : 0);
+            }, 0));
+            const actualCost = currentData.reduce((sum, row) => sum + (row.coal_cost_total || 0), 0);
+            const totalOutput = currentData.reduce((sum, row) => sum + (row.output_total || 0), 0);
+            const targetCost = totalOutput * TARGET_BAHT_OUTPUT;
+            const machineCostTotal = machineCosts.reduce((sum, value) => sum + value, 0);
+
+            if (machineCostTotal === 0 && actualCost > 0) {
+                const outputByMachine = machineKeys.map(key => currentData.reduce((sum, row) => sum + (row[`output_${key}`] || 0), 0));
+                const outputTotal = outputByMachine.reduce((sum, value) => sum + value, 0);
+                outputByMachine.forEach((output, index) => {
+                    machineCosts[index] = outputTotal > 0 ? actualCost * output / outputTotal : 0;
+                });
+            }
+
+            const savingAmount = targetCost - actualCost;
+            const savingPercent = targetCost > 0 ? (savingAmount / targetCost) * 100 : 0;
+            return { machineLabels, machineColors, machineCosts, actualCost, targetCost, savingAmount, savingPercent };
+        }
+
+        function renderSummaryCharts() {
+            const summary = getCostSummary();
+            const money = value => `฿${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            createOrUpdateChart('chartCostShare', {
+                type: 'doughnut',
+                data: {
+                    labels: summary.machineLabels,
+                    datasets: [{
+                        data: summary.machineCosts,
+                        backgroundColor: summary.machineColors,
+                        borderColor: '#1e293b',
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '58%',
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        datalabels: {
+                            display: true,
+                            color: '#f8fafc',
+                            formatter: (value, context) => {
+                                const total = context.dataset.data.reduce((sum, item) => sum + item, 0);
+                                return total > 0 ? `${(value / total * 100).toFixed(1)}%` : '0%';
+                            }
+                        },
+                        tooltip: { callbacks: { label: context => `${context.label}: ${money(context.raw)}` } }
+                    }
+                }
+            });
+
+            createOrUpdateChart('chartTotalCostTarget', {
+                type: 'bar',
+                data: {
+                    labels: ['ต้นทุนเป้าหมาย', 'ต้นทุนจริง'],
+                    datasets: [{
+                        label: 'ต้นทุนรวม (บาท)',
+                        data: [summary.targetCost, summary.actualCost],
+                        backgroundColor: ['rgba(245, 158, 11, 0.72)', 'rgba(16, 185, 129, 0.72)'],
+                        borderColor: ['#f59e0b', '#10b981'],
+                        borderWidth: 1,
+                        borderRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: true } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: context => ` ${money(context.raw)}` } }
+                    }
+                }
+            });
+
+            const gaugeValue = Math.max(0, Math.min(100, summary.savingPercent));
+            createOrUpdateChart('chartSavingGauge', {
+                type: 'doughnut',
+                data: {
+                    labels: ['Coal% Saving', 'Remaining'],
+                    datasets: [{
+                        data: [gaugeValue, Math.max(0, 100 - gaugeValue)],
+                        backgroundColor: ['#10b981', '#334155'],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270,
+                        cutout: '68%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    rotation: 270,
+                    circumference: 180,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false },
+                        datalabels: { display: false }
+                    }
+                },
+                plugins: [{
+                    id: 'savingGaugeCenterText',
+                    afterDraw(chart) {
+                        const { ctx, chartArea } = chart;
+                        if (!chartArea) return;
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.fillStyle = summary.savingPercent >= 0 ? '#34d399' : '#fb7185';
+                        ctx.font = "700 28px 'Prompt', sans-serif";
+                        ctx.fillText(`${summary.savingPercent >= 0 ? '+' : ''}${summary.savingPercent.toFixed(2)}%`, (chartArea.left + chartArea.right) / 2, chartArea.bottom - 8);
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            const summaryText = summary.savingAmount >= 0
+                ? `ประหยัดได้ ${money(summary.savingAmount)}`
+                : `เกินเป้าหมาย ${money(Math.abs(summary.savingAmount))}`;
+            document.getElementById('cost-saving-summary').innerText = summaryText;
+            document.getElementById('saving-formula-summary').innerText = `Coal% Saving = (Target Cost - Actual Cost) / Target Cost × 100 | ${summaryText}`;
+        }
+
         function renderCharts() {
-            const labels = currentData.map(d => d.dateStr);
+            const chartData = getChartData();
+            const labels = chartData.map(d => d.periodLabel || d.dateStr);
+            renderSummaryCharts();
 
             // Chart 1: Steam Usage (Line)
             createOrUpdateChart('chartSteam', {
@@ -845,11 +1204,11 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'ISOWA', data: currentData.map(d => d.steam_isowa), borderColor: THEME.isowa.solid, backgroundColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
-                        { label: 'BHS', data: currentData.map(d => d.steam_bhs), borderColor: THEME.bhs.solid, backgroundColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
-                        { label: 'YUELI', data: currentData.map(d => d.steam_yueli), borderColor: THEME.yueli.solid, backgroundColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
-                        { label: 'Total Avg', data: currentData.map(d => d.steam_total), borderColor: THEME.total.solid, backgroundColor: THEME.total.solid, borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
-                        { label: 'Target (302)', data: currentData.map(() => TARGET_STEAM), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                        { label: 'ISOWA', data: chartData.map(d => d.steam_isowa), borderColor: THEME.isowa.solid, backgroundColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: chartData.map(d => d.steam_bhs), borderColor: THEME.bhs.solid, backgroundColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: chartData.map(d => d.steam_yueli), borderColor: THEME.yueli.solid, backgroundColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
+                        { label: 'Total Avg', data: chartData.map(d => d.steam_total), borderColor: THEME.total.solid, backgroundColor: THEME.total.solid, borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: 'Target (302)', data: chartData.map(() => TARGET_STEAM), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
@@ -862,7 +1221,7 @@
                     labels: labels,
                     datasets: [{
                         label: 'Total Coal Cost (Baht)',
-                        data: currentData.map(d => d.coal_cost_total),
+                        data: chartData.map(d => d.coal_cost_total),
                         backgroundColor: THEME.cost.bg,
                         borderColor: THEME.cost.border,
                         borderWidth: 1,
@@ -880,11 +1239,144 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Total Avg', data: currentData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, totalOnly: true, hidden: false },
-                        { label: 'Target (208)', data: currentData.map(() => TARGET_COAL_WATER), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                        { label: 'Total Avg', data: chartData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, totalOnly: true, hidden: false },
+                        { label: 'Target (208)', data: chartData.map(() => TARGET_COAL_WATER), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 3B: Coal / Steam Trend ตามช่วงเวลาและตัวกรองเดียวกับกราฟอื่น
+            const monthlyLabels = labels;
+            const monthlyValues = chartData.map(d => d.cw_total);
+
+            createOrUpdateChart('chartCoalWaterMonthly', {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [
+                        {
+                            label: 'เฉลี่ย ถ่านต่อไอน้ำ / เดือน',
+                            data: monthlyValues,
+                            borderColor: '#06b6d4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            totalOnly: true,
+                            datalabels: {
+                                display: true,
+                                align: 'top',
+                                formatter: (value, context) => {
+                                    if (context.dataIndex === 0) return Number(value).toFixed(1);
+                                    const prev = monthlyValues[context.dataIndex - 1];
+                                    const ch = prev ? ((Number(value) - prev) / prev) * 100 : 0;
+                                    return `${Number(value).toFixed(1)} (${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%)`;
+                                },
+                                font: { size: 9, weight: '600' }
+                            },
+                            hidden: false
+                        },
+                        {
+                            label: 'Target (208)',
+                            data: chartData.map(() => TARGET_COAL_WATER),
+                            borderColor: THEME.target.solid,
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            hidden: false,
+                            datalabels: { display: false }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: darkGrid },
+                        y: { grid: darkGrid, beginAtZero: false }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ctx.datasetIndex === 0
+                                    ? `ถ่านต่อไอน้ำ: ${Number(ctx.raw).toFixed(2)}`
+                                    : `Target: ${TARGET_COAL_WATER}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 3C: Coal Price Trend ตามช่วงเวลาและตัวกรองเดียวกับกราฟอื่น
+            const monthlyPriceLabels = labels;
+            const monthlyPriceValues = chartData.map(d => d.coal_price);
+            const monthlyPriceChanges = monthlyPriceValues.map((value, i) => {
+                if (i === 0 || !monthlyPriceValues[i - 1]) return null;
+                return ((value - monthlyPriceValues[i - 1]) / monthlyPriceValues[i - 1]) * 100;
+            });
+
+            createOrUpdateChart('chartCoalPriceMonthly', {
+                type: 'line',
+                data: {
+                    labels: monthlyPriceLabels,
+                    datasets: [
+                        {
+                            label: 'ราคาถ่านหินเฉลี่ย (฿/kg)',
+                            data: monthlyPriceValues,
+                            borderColor: THEME.price.solid,
+                            backgroundColor: THEME.price.bg,
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            datalabels: {
+                                display: true,
+                                align: 'top',
+                                formatter: (value, context) => {
+                                    const ch = monthlyPriceChanges[context.dataIndex];
+                                    return ch === null ? `${Number(value).toFixed(2)}` : `${Number(value).toFixed(2)} (${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%)`;
+                                },
+                                font: { size: 9, weight: '600' }
+                            }
+                        },
+                        {
+                            label: 'Target (฿2.40/kg)',
+                            data: chartData.map(() => TARGET_COAL_PRICE),
+                            borderColor: THEME.target.solid,
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            datalabels: { display: false }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: darkGrid },
+                        y: { grid: darkGrid, beginAtZero: false }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    if (ctx.datasetIndex === 0) {
+                                        const ch = monthlyPriceChanges[ctx.dataIndex];
+                                        return `ราคา: ฿${Number(ctx.raw).toFixed(2)}/kg${ch === null ? '' : ` | ${ch >= 0 ? '+' : ''}${ch.toFixed(2)}% จากเดือนก่อน`}`;
+                                    }
+                                    return `Target: ฿${TARGET_COAL_PRICE.toFixed(2)}/kg`;
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
             // Chart 4: Baht / Output (Line)
@@ -893,14 +1385,52 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'ISOWA', data: currentData.map(d => d.bo_isowa), borderColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
-                        { label: 'BHS', data: currentData.map(d => d.bo_bhs), borderColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
-                        { label: 'YUELI', data: currentData.map(d => d.bo_yueli), borderColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
-                        { label: 'Total Avg', data: currentData.map(d => d.bo_total), borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
-                        { label: `Target (${TARGET_BAHT_OUTPUT})`, data: currentData.map(() => TARGET_BAHT_OUTPUT), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
+                        { label: 'ISOWA', data: chartData.map(d => d.bo_isowa), borderColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: chartData.map(d => d.bo_bhs), borderColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: chartData.map(d => d.bo_yueli), borderColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
+                        { label: 'Total Avg', data: chartData.map(d => d.bo_total), borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderWidth: 3, tension: 0.3, pointRadius: 3, hidden: !visibilityState.total },
+                        { label: `Target (${TARGET_BAHT_OUTPUT})`, data: chartData.map(() => TARGET_BAHT_OUTPUT), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Chart 4B: Target versus Actual Baht / Output
+            createOrUpdateChart('chartBahtOutputTarget', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Actual (บาท/kg Output)',
+                            data: chartData.map(d => d.baht_output_actual),
+                            backgroundColor: 'rgba(245, 158, 11, 0.75)',
+                            borderColor: '#f59e0b',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Target (฿0.188/kg)',
+                            data: chartData.map(() => TARGET_BAHT_OUTPUT),
+                            type: 'line',
+                            borderColor: THEME.target.solid,
+                            backgroundColor: THEME.target.solid,
+                            borderDash: [6, 4],
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: true } },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ฿${Number(ctx.raw).toFixed(3)}/kg` } }
+                    }
+                }
             });
 
             // Chart 5: Coal Price (Line)
@@ -911,7 +1441,7 @@
                     datasets: [
                         {
                             label: 'Coal Price (Baht/kg)',
-                            data: currentData.map(d => d.coal_price),
+                            data: chartData.map(d => d.coal_price),
                             borderColor: THEME.price.solid,
                             backgroundColor: THEME.price.bg,
                             fill: true,
@@ -922,7 +1452,7 @@
                         },
                         {
                             label: 'Target (฿2.40/kg)',
-                            data: currentData.map(() => TARGET_COAL_PRICE),
+                            data: chartData.map(() => TARGET_COAL_PRICE),
                             borderColor: THEME.target.solid,
                             borderDash: [5, 5],
                             borderWidth: 2,
@@ -957,10 +1487,10 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'ISOWA', data: currentData.map(d => d.output_isowa), backgroundColor: THEME.isowa.solid, stack: 'Stack 0', hidden: !visibilityState.isowa },
-                        { label: 'BHS', data: currentData.map(d => d.output_bhs), backgroundColor: THEME.bhs.solid, stack: 'Stack 0', hidden: !visibilityState.bhs },
-                        { label: 'YUELI', data: currentData.map(d => d.output_yueli), backgroundColor: THEME.yueli.solid, stack: 'Stack 0', hidden: !visibilityState.yueli },
-                        { type: 'line', label: 'Total Output', data: currentData.map(d => d.output_total), borderColor: THEME.total.solid, borderWidth: 2, pointRadius: 0, fill: false, hidden: !visibilityState.total }
+                        { label: 'ISOWA', data: chartData.map(d => d.output_isowa), backgroundColor: THEME.isowa.solid, stack: 'Stack 0', hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: chartData.map(d => d.output_bhs), backgroundColor: THEME.bhs.solid, stack: 'Stack 0', hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: chartData.map(d => d.output_yueli), backgroundColor: THEME.yueli.solid, stack: 'Stack 0', hidden: !visibilityState.yueli },
+                        { type: 'line', label: 'Total Output', data: chartData.map(d => d.output_total), borderColor: THEME.total.solid, borderWidth: 2, pointRadius: 0, fill: false, hidden: !visibilityState.total }
                     ]
                 },
                 options: { 
