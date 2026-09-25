@@ -229,19 +229,19 @@
                 </label>
 
                 <label class="inline-flex items-center cursor-pointer">
-                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('isowa', this.checked)">
+                  <input type="checkbox" class="sr-only peer" checked onchange="toggleSeries('isowa', this.checked)">
                   <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
                   <span class="ms-2 text-sm font-medium text-slate-300">ISOWA</span>
                 </label>
                 
                 <label class="inline-flex items-center cursor-pointer">
-                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('bhs', this.checked)">
+                  <input type="checkbox" class="sr-only peer" checked onchange="toggleSeries('bhs', this.checked)">
                   <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
                   <span class="ms-2 text-sm font-medium text-slate-300">BHS</span>
                 </label>
 
                 <label class="inline-flex items-center cursor-pointer">
-                  <input type="checkbox" class="sr-only peer" onchange="toggleSeries('yueli', this.checked)">
+                  <input type="checkbox" class="sr-only peer" checked onchange="toggleSeries('yueli', this.checked)">
                   <div class="relative w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-400"></div>
                   <span class="ms-2 text-sm font-medium text-slate-300">YUELI</span>
                 </label>
@@ -432,7 +432,7 @@
             <div class="panel p-5 border-t-2 border-purple-500">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน) Target 208
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 3. ถ่านต่อไอน้ำ (รายวัน แยกรายเครื่อง) Target 208
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartCoalWater"></canvas></div>
@@ -513,6 +513,12 @@
             cw_isowa: "ถ่านต่อไอน้ำ ISOWA",
             cw_bhs: "ถ่านต่อไอน้ำBHS",
             cw_yueli: "ถ่านต่อไอน้ำYUELI",
+            coal_usage_isowa: "การใช้ถ่าน ISOWA",
+            coal_usage_bhs: "การใช้ถ่าน BHS",
+            coal_usage_yueli: "การใช้ถ่าน YUELI",
+            steam_isowa_total: "ไอน้ำISOWA",
+            steam_bhs_total: "ไอน้ำBHS",
+            steam_yueli_total: "ไอน้ำ YUELI",
             bo_total: "Baht/Output Total",
             bo_isowa: "บาทต่อ Output ISOWA",
             bo_bhs: "บาทต่อOUTPUT BHS",
@@ -540,7 +546,7 @@
         let timeGranularity = 'month';
 
         // 🎛️ State การแสดงผล
-        let visibilityState = { total: true, isowa: false, bhs: false, yueli: false };
+        let visibilityState = { total: true, isowa: true, bhs: true, yueli: true };
         let showDataLabels = false;
 
         // ลงทะเบียน Plugin DataLabels
@@ -831,6 +837,19 @@
                         let cw_b = extractCol(row, COLUMN_MAP.cw_bhs);
                         let cw_y = extractCol(row, COLUMN_MAP.cw_yueli);
                         let cw_t = extractCol(row, COLUMN_MAP.cw_total);
+
+                        // ISOWA has no ready-made coal/steam column in the sheet.
+                        // Derive it from coal usage divided by steam usage when needed.
+                        const coalUsageIsowa = extractCol(row, COLUMN_MAP.coal_usage_isowa);
+                        const coalUsageBhs = extractCol(row, COLUMN_MAP.coal_usage_bhs);
+                        const coalUsageYueli = extractCol(row, COLUMN_MAP.coal_usage_yueli);
+                        const steamIsowaTotal = extractCol(row, COLUMN_MAP.steam_isowa_total);
+                        const steamBhsTotal = extractCol(row, COLUMN_MAP.steam_bhs_total);
+                        const steamYueliTotal = extractCol(row, COLUMN_MAP.steam_yueli_total);
+                        const ratio = (coalUsage, steamUsage) => coalUsage > 0 && steamUsage > 0 ? coalUsage / steamUsage : null;
+                        if (cw_i === null) cw_i = ratio(coalUsageIsowa, steamIsowaTotal);
+                        if (cw_b === null) cw_b = ratio(coalUsageBhs, steamBhsTotal);
+                        if (cw_y === null) cw_y = ratio(coalUsageYueli, steamYueliTotal);
 
                         let out_t = extractCol(row, COLUMN_MAP.output_total);
                         let out_i = extractCol(row, COLUMN_MAP.output_isowa);
@@ -1239,6 +1258,9 @@
                 data: {
                     labels: labels,
                     datasets: [
+                        { label: 'ISOWA', data: chartData.map(d => d.cw_isowa), borderColor: THEME.isowa.solid, backgroundColor: THEME.isowa.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.isowa },
+                        { label: 'BHS', data: chartData.map(d => d.cw_bhs), borderColor: THEME.bhs.solid, backgroundColor: THEME.bhs.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.bhs },
+                        { label: 'YUELI', data: chartData.map(d => d.cw_yueli), borderColor: THEME.yueli.solid, backgroundColor: THEME.yueli.solid, tension: 0.3, pointRadius: 2, hidden: !visibilityState.yueli },
                         { label: 'Total Avg', data: chartData.map(d => d.cw_total), borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.3, borderWidth: 2, pointRadius: 3, totalOnly: true, hidden: false },
                         { label: 'Target (208)', data: chartData.map(() => TARGET_COAL_WATER), borderColor: THEME.target.solid, borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false, hidden: false, datalabels: { display: false } }
                     ]
