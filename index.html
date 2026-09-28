@@ -257,7 +257,7 @@
         </div>
 
         <!-- Top KPI Summary (5 กล่อง) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
             <!-- Output (Green) -->
             <div class="panel p-5 border border-emerald-500/30 relative overflow-hidden">
                 <div class="flex justify-between items-start">
@@ -348,16 +348,31 @@
                     </div>
                 </div>
             </div>
+
+            <div class="panel p-5 border border-cyan-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ต้นทุนถ่านหินต่อการผลิตไอน้ำ</p>
+                        <p class="text-3xl font-bold text-cyan-400" id="kpi-coal-steam-cost">0.00</p>
+                        <p class="text-xs text-slate-500 mt-1">เป้าหมาย (Target): 664 บาท/ตันไอน้ำ</p>
+                        <p class="text-xs mt-1 font-medium" id="kpi-coal-steam-cost-diff">-</p>
+                    </div>
+                    <div class="p-2 bg-cyan-500/10 rounded border border-cyan-500/20">
+                        <svg class="w-6 h-6 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="panel p-4 border-l-4 border-amber-500 bg-slate-800/80">
             <h2 class="text-sm font-semibold text-slate-300 mb-2">สูตรการคำนวณ Target เทียบ Actual</h2>
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs text-slate-400">
+            <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 text-xs text-slate-400">
                 <p><span class="text-orange-300 font-medium">ปริมาณถ่านหิน (kg)</span> = ต้นทุนถ่านหิน (บาท) ÷ ราคาถ่านหิน (บาท/kg)</p>
                 <p><span class="text-amber-300 font-medium">Actual (บาท/kg Output)</span> = ต้นทุนถ่านหินรวม (บาท) ÷ Output รวม (kg)</p>
                 <p><span class="text-indigo-300 font-medium">ราคาเฉลี่ยถ่วงน้ำหนัก</span> = ต้นทุนถ่านหินรวม ÷ ปริมาณถ่านหินรวม</p>
                 <p><span class="text-rose-300 font-medium">ต้นทุนเป้าหมาย</span> = 0.188 × Output รวม (kg)</p>
                 <p><span class="text-emerald-300 font-medium">Coal% Saving</span> = (ต้นทุนเป้าหมาย - ต้นทุนจริง) ÷ ต้นทุนเป้าหมาย × 100</p>
+                <p><span class="text-cyan-300 font-medium">ต้นทุนถ่านหินต่อไอน้ำ (บาท/ตัน)</span> = ต้นทุนถ่านหินรวม ÷ ปริมาณไอน้ำรวม (ตัน)</p>
             </div>
         </div>
 
@@ -418,6 +433,16 @@
                     </h2>
                 </div>
                 <div class="chart-container"><canvas id="chartSteam"></canvas></div>
+            </div>
+
+            <div class="panel p-5 border-t-2 border-cyan-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-500"></span> ต้นทุนถ่านหินต่อการผลิตไอน้ำ
+                    </h2>
+                    <span class="text-xs text-slate-500">Target 664 บาท/ตันไอน้ำ</span>
+                </div>
+                <div class="chart-container"><canvas id="chartCoalSteamCost"></canvas></div>
             </div>
 
             <div class="panel p-5 border-t-2 border-rose-500">
@@ -532,6 +557,7 @@
 
         // TARGETS
         const TARGET_STEAM = 302;
+        const TARGET_COAL_STEAM_COST = 664;
         const TARGET_BAHT_OUTPUT = 0.188;
         const TARGET_COAL_WATER = 208;
         const TARGET_COAL_PRICE = 2.40;
@@ -868,6 +894,7 @@
                             month: dObj.getMonth() + 1,
                             timeValue: dObj.getTime(),
                             steam_total: steam_t, steam_isowa: steam_i, steam_bhs: steam_b, steam_yueli: steam_y,
+                            steam_output_total: [steamIsowaTotal, steamBhsTotal, steamYueliTotal].reduce((sum, value) => sum + (value || 0), 0),
                             coal_cost_total: cost_t,
                             cw_total: cw_t, cw_isowa: cw_i, cw_bhs: cw_b, cw_yueli: cw_y,
                             bo_total: extractCol(row, COLUMN_MAP.bo_total), bo_isowa: extractCol(row, COLUMN_MAP.bo_isowa), bo_bhs: extractCol(row, COLUMN_MAP.bo_bhs), bo_yueli: extractCol(row, COLUMN_MAP.bo_yueli),
@@ -954,13 +981,20 @@
             return totalOutput > 0 ? totalCost / totalOutput : calcAvg(arr, 'bo_total');
         };
 
+        const calcCoalSteamCost = (arr) => {
+            const totalCost = arr.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
+            const totalSteam = arr.reduce((sum, d) => sum + (d.steam_output_total || 0), 0);
+            return totalSteam > 0 ? totalCost / totalSteam : null;
+        };
+
         function getChartData() {
             if (timeGranularity === 'day') {
                 return currentData.map(row => ({
                     ...row,
                     periodLabel: row.dateStr,
                     coal_usage: calcCoalUsage([row]),
-                    baht_output_actual: calcBahtOutputActual([row])
+                    baht_output_actual: calcBahtOutputActual([row]),
+                    coal_steam_cost: calcCoalSteamCost([row])
                 }));
             }
 
@@ -984,20 +1018,21 @@
                     'cw_total', 'cw_isowa', 'cw_bhs', 'cw_yueli',
                     'bo_total', 'bo_isowa', 'bo_bhs', 'bo_yueli', 'coal_price'
                 ];
-                const sumFields = ['coal_cost_total', 'output_total', 'output_isowa', 'output_bhs', 'output_yueli'];
+                const sumFields = ['coal_cost_total', 'steam_output_total', 'output_total', 'output_isowa', 'output_bhs', 'output_yueli'];
                 const result = { ...first, dateStr: label, periodLabel: label };
                 averageFields.forEach(field => { result[field] = calcAvg(rows, field) || null; });
                 sumFields.forEach(field => { result[field] = rows.reduce((sum, row) => sum + (row[field] || 0), 0); });
                 result.coal_usage = calcCoalUsage(rows);
                 result.coal_price = result.coal_usage > 0 ? result.coal_cost_total / result.coal_usage : null;
                 result.baht_output_actual = calcBahtOutputActual(rows);
+                result.coal_steam_cost = calcCoalSteamCost(rows);
                 return result;
             });
         }
 
         function updateKPIs() {
             if (currentData.length === 0) {
-                const kpis = ['output', 'cost', 'coal-usage', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
+                const kpis = ['output', 'cost', 'coal-usage', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'coal-steam-cost', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
                 kpis.forEach(id => {
                     const el = document.getElementById(`kpi-${id}`);
                     if (el) el.innerText = '0';
@@ -1016,6 +1051,7 @@
             const avgBahtOutput = calcBahtOutputActual(currentData);
             const avgCoalPrice = sumCoalUsage > 0 ? sumCost / sumCoalUsage : calcAvg(currentData, 'coal_price');
             const avgCoalWater = calcAvg(currentData, 'cw_total');
+            const coalSteamCost = calcCoalSteamCost(currentData) || 0;
             
             const avgSteamTotal = calcAvg(currentData, 'steam_total');
             const avgSteamIsowa = calcAvg(currentData, 'steam_isowa');
@@ -1032,6 +1068,7 @@
             document.getElementById('kpi-baht-output').innerText = fmt(avgBahtOutput, 3);
             document.getElementById('kpi-avg-coal-price').innerText = fmt(avgCoalPrice, 2);
             document.getElementById('kpi-avg-coal-water').innerText = fmt(avgCoalWater, 2);
+            document.getElementById('kpi-coal-steam-cost').innerText = fmt(coalSteamCost, 2);
 
             document.getElementById('kpi-steam-total').innerText = fmt(avgSteamTotal, 1);
             document.getElementById('kpi-steam-isowa').innerText = fmt(avgSteamIsowa, 1);
@@ -1039,7 +1076,7 @@
             document.getElementById('kpi-steam-yueli').innerText = fmt(avgSteamYueli, 1);
 
             // Diff coloring logic (Lower is generally better for costs and usage)
-            const styleDiff = (actual, target, elementId, inverse = false) => {
+            const styleDiff = (actual, target, elementId, inverse = false, decimals = 3) => {
                 const el = document.getElementById(elementId);
                 if (!el || actual === 0) return;
                 const diff = actual - target;
@@ -1047,7 +1084,7 @@
                 let isGood = diff <= 0; // default: lower is better
                 if (inverse) isGood = diff >= 0; // higher is better
 
-                el.innerText = `Diff: ${diff > 0 ? '+' : ''}${diff.toFixed(3)} | ${diff > 0 ? '+' : ''}${percent.toFixed(1)}%`;
+                el.innerText = `Diff: ${diff > 0 ? '+' : ''}${diff.toFixed(decimals)} | ${diff > 0 ? '+' : ''}${percent.toFixed(1)}%`;
                 if (isGood) {
                     el.className = 'text-xs mt-1 font-medium text-emerald-400';
                 } else {
@@ -1058,6 +1095,7 @@
             styleDiff(avgBahtOutput, TARGET_BAHT_OUTPUT, 'kpi-baht-output-diff');
             styleDiff(avgCoalWater, TARGET_COAL_WATER, 'kpi-avg-coal-water-diff');
             styleDiff(avgCoalPrice, TARGET_COAL_PRICE, 'kpi-avg-coal-price-diff');
+            styleDiff(coalSteamCost, TARGET_COAL_STEAM_COST, 'kpi-coal-steam-cost-diff', false, 2);
             
             styleDiff(avgSteamTotal, TARGET_STEAM, 'kpi-steam-total-diff');
             styleDiff(avgSteamIsowa, TARGET_STEAM, 'kpi-steam-isowa-diff');
@@ -1231,6 +1269,44 @@
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            createOrUpdateChart('chartCoalSteamCost', {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'ต้นทุนถ่านหินต่อไอน้ำ (บาท/ตันไอน้ำ)',
+                            data: chartData.map(d => d.coal_steam_cost),
+                            borderColor: '#06b6d4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: `Target (${TARGET_COAL_STEAM_COST})`,
+                            data: chartData.map(() => TARGET_COAL_STEAM_COST),
+                            borderColor: THEME.target.solid,
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            datalabels: { display: false }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { grid: darkGrid }, y: { grid: darkGrid, beginAtZero: false } },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)}` } }
+                    }
+                }
             });
 
             // Chart 2: Cost (Bar)
