@@ -256,8 +256,8 @@
             </div>
         </div>
 
-        <!-- Top KPI Summary (5 กล่อง) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+        <!-- Top KPI Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
             <!-- Output (Green) -->
             <div class="panel p-5 border border-emerald-500/30 relative overflow-hidden">
                 <div class="flex justify-between items-start">
@@ -296,6 +296,20 @@
                     </div>
                     <div class="p-2 bg-orange-500/10 rounded border border-orange-500/20">
                         <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m0-18c-4 0-7 2-7 5 0 2 1.5 3.5 4 4-2.5.5-4 2-4 4 0 3 3 5 7 5m0-18c4 0 7 2 7 5 0 2-1.5 3.5-4 4 2.5.5 4 2 4 4 0 3-3 5-7 5"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel p-5 border border-lime-500/30 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-400 mb-1">ถ่านหินต่อ kg Output</p>
+                        <p class="text-3xl font-bold text-lime-400" id="kpi-coal-output">0.000</p>
+                        <p class="text-xs text-slate-500 mt-1">เป้าหมาย (Target): 0.079 kg/kg Output</p>
+                        <p class="text-xs mt-1 font-medium" id="kpi-coal-output-diff">-</p>
+                    </div>
+                    <div class="p-2 bg-lime-500/10 rounded border border-lime-500/20">
+                        <svg class="w-6 h-6 text-lime-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m0-18c-4 0-7 2-7 5 0 2 1.5 3.5 4 4-2.5.5-4 2-4 4 0 3 3 5 7 5m0-18c4 0 7 2 7 5 0 2-1.5 3.5-4 4 2.5.5 4 2-4 4 0 3-3 5-7 5"></path></svg>
                     </div>
                 </div>
             </div>
@@ -366,8 +380,9 @@
 
         <div class="panel p-4 border-l-4 border-amber-500 bg-slate-800/80">
             <h2 class="text-sm font-semibold text-slate-300 mb-2">สูตรการคำนวณ Target เทียบ Actual</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 text-xs text-slate-400">
+            <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-3 text-xs text-slate-400">
                 <p><span class="text-orange-300 font-medium">ปริมาณถ่านหิน (kg)</span> = ต้นทุนถ่านหิน (บาท) ÷ ราคาถ่านหิน (บาท/kg)</p>
+                <p><span class="text-lime-300 font-medium">ถ่านหินต่อ kg Output (kg/kg)</span> = ปริมาณถ่านหินรวม (kg) ÷ Output รวม (kg) | Target: 0.079</p>
                 <p><span class="text-amber-300 font-medium">Actual (บาท/kg Output)</span> = ต้นทุนถ่านหินรวม (บาท) ÷ Output รวม (kg)</p>
                 <p><span class="text-indigo-300 font-medium">ราคาเฉลี่ยถ่วงน้ำหนัก</span> = ต้นทุนถ่านหินรวม ÷ ปริมาณถ่านหินรวม</p>
                 <p><span class="text-rose-300 font-medium">ต้นทุนเป้าหมาย</span> = 0.188 × Output รวม (kg)</p>
@@ -561,6 +576,7 @@
         const TARGET_BAHT_OUTPUT = 0.188;
         const TARGET_COAL_WATER = 208;
         const TARGET_COAL_PRICE = 2.40;
+        const TARGET_COAL_OUTPUT = 0.079;
 
         const SHEET_ID = '1qS-AaBlEmWWlRaCV7_ESLCzBbB0JGVfKCBXrB8PpdCs';
         const GID = '48785430'; 
@@ -1032,7 +1048,7 @@
 
         function updateKPIs() {
             if (currentData.length === 0) {
-                const kpis = ['output', 'cost', 'coal-usage', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'coal-steam-cost', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
+                const kpis = ['output', 'cost', 'coal-usage', 'coal-output', 'baht-output', 'avg-coal-price', 'avg-coal-water', 'coal-steam-cost', 'steam-total', 'steam-isowa', 'steam-bhs', 'steam-yueli'];
                 kpis.forEach(id => {
                     const el = document.getElementById(`kpi-${id}`);
                     if (el) el.innerText = '0';
@@ -1046,6 +1062,7 @@
             const sumOutput = currentData.reduce((sum, d) => sum + (d.output_total || 0), 0);
             const sumCost = currentData.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
             const sumCoalUsage = calcCoalUsage(currentData);
+            const coalOutputRatio = sumOutput > 0 ? sumCoalUsage / sumOutput : 0;
             
             // Averages
             const avgBahtOutput = calcBahtOutputActual(currentData);
@@ -1065,6 +1082,7 @@
             document.getElementById('kpi-output').innerText = fmt(sumOutput);
             document.getElementById('kpi-cost').innerText = fmt(sumCost);
             document.getElementById('kpi-coal-usage').innerText = fmt(sumCoalUsage, 1);
+            document.getElementById('kpi-coal-output').innerText = fmt(coalOutputRatio, 3);
             document.getElementById('kpi-baht-output').innerText = fmt(avgBahtOutput, 3);
             document.getElementById('kpi-avg-coal-price').innerText = fmt(avgCoalPrice, 2);
             document.getElementById('kpi-avg-coal-water').innerText = fmt(avgCoalWater, 2);
@@ -1093,6 +1111,10 @@
             };
 
             styleDiff(avgBahtOutput, TARGET_BAHT_OUTPUT, 'kpi-baht-output-diff');
+            const coalOutputDiff = document.getElementById('kpi-coal-output-diff');
+            coalOutputDiff.innerText = '-';
+            coalOutputDiff.className = 'text-xs mt-1 font-medium';
+            styleDiff(coalOutputRatio, TARGET_COAL_OUTPUT, 'kpi-coal-output-diff');
             styleDiff(avgCoalWater, TARGET_COAL_WATER, 'kpi-avg-coal-water-diff');
             styleDiff(avgCoalPrice, TARGET_COAL_PRICE, 'kpi-avg-coal-price-diff');
             styleDiff(coalSteamCost, TARGET_COAL_STEAM_COST, 'kpi-coal-steam-cost-diff', false, 2);
