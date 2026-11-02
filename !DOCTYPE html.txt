@@ -440,6 +440,24 @@
 
         <!-- กราฟวิเคราะห์ (Charts Grid) -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <div class="panel p-5 border-t-2 border-lime-500 lg:col-span-2">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-lime-500"></span> ประสิทธิภาพเตาบอยเลอร์ 4 ตัน (รายวัน)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-2">ถ่าน AR3800 (LHV 15,909.84 kJ/kg) · ไอน้ำ 8 bar · น้ำป้อน 90°C</p>
+                        <p class="text-xs text-slate-500 mt-1">ประสิทธิภาพ = ไอน้ำ (ตัน) × 1,000 × (2,768 − 376) ÷ [ถ่านจริง (kg) × 15,909.84] × 100</p>
+                    </div>
+                    <div class="text-sm text-right">
+                        <span class="text-slate-400">ประสิทธิภาพช่วงที่เลือก</span>
+                        <span id="boiler-efficiency-summary" class="block text-xl font-bold text-lime-400">-</span>
+                        <span class="text-xs text-slate-500">เป้าหมาย 80%</span>
+                    </div>
+                </div>
+                <div class="chart-container"><canvas id="chartBoilerEfficiency"></canvas></div>
+            </div>
             
             <div class="panel p-5 border-t-2 border-teal-500">
                 <div class="flex justify-between items-center mb-4">
@@ -577,6 +595,11 @@
         const TARGET_COAL_WATER = 208;
         const TARGET_COAL_PRICE = 2.40;
         const TARGET_COAL_OUTPUT = 0.079;
+        const TARGET_BOILER_EFFICIENCY = 80;
+        const COAL_LHV_KJ_KG = 15909.84;
+        const STEAM_ENTHALPY_KJ_KG = 2768;
+        const FEEDWATER_ENTHALPY_KJ_KG = 376;
+        const STEAM_KG_PER_TON = 1000;
 
         const SHEET_ID = '1qS-AaBlEmWWlRaCV7_ESLCzBbB0JGVfKCBXrB8PpdCs';
         const GID = '48785430'; 
@@ -911,6 +934,7 @@
                             timeValue: dObj.getTime(),
                             steam_total: steam_t, steam_isowa: steam_i, steam_bhs: steam_b, steam_yueli: steam_y,
                             steam_output_total: [steamIsowaTotal, steamBhsTotal, steamYueliTotal].reduce((sum, value) => sum + (value || 0), 0),
+                            coal_usage_isowa: coalUsageIsowa, coal_usage_bhs: coalUsageBhs, coal_usage_yueli: coalUsageYueli,
                             coal_cost_total: cost_t,
                             cw_total: cw_t, cw_isowa: cw_i, cw_bhs: cw_b, cw_yueli: cw_y,
                             bo_total: extractCol(row, COLUMN_MAP.bo_total), bo_isowa: extractCol(row, COLUMN_MAP.bo_isowa), bo_bhs: extractCol(row, COLUMN_MAP.bo_bhs), bo_yueli: extractCol(row, COLUMN_MAP.bo_yueli),
@@ -987,9 +1011,34 @@
         };
 
         const calcCoalUsage = (arr) => arr.reduce((sum, d) => {
+            const measuredUsage = [d.coal_usage_isowa, d.coal_usage_bhs, d.coal_usage_yueli]
+                .reduce((total, value) => total + (value > 0 ? value : 0), 0);
+            if (measuredUsage > 0) return sum + measuredUsage;
             if (!d.coal_cost_total || !d.coal_price || d.coal_price <= 0) return sum;
             return sum + (d.coal_cost_total / d.coal_price);
         }, 0);
+
+        const calcBoilerEfficiency = (arr) => {
+            const steamKg = arr.reduce((sum, row) => sum + (row.steam_output_total || 0), 0) * STEAM_KG_PER_TON;
+            const coalKg = calcCoalUsage(arr);
+            if (steamKg <= 0 || coalKg <= 0) return null;
+            return (steamKg * (STEAM_ENTHALPY_KJ_KG - FEEDWATER_ENTHALPY_KJ_KG)
+                / (coalKg * COAL_LHV_KJ_KG)) * 100;
+        };
+
+        function getDailyBoilerEfficiencyData() {
+            const dailyGroups = new Map();
+            currentData.forEach(row => {
+                const dayKey = formatDateToYYYYMMDD(row.dateObj);
+                if (!dailyGroups.has(dayKey)) dailyGroups.set(dayKey, []);
+                dailyGroups.get(dayKey).push(row);
+            });
+
+            return Array.from(dailyGroups.values()).map(rows => ({
+                periodLabel: rows[0].dateStr,
+                efficiency: calcBoilerEfficiency(rows)
+            }));
+        }
 
         const calcBahtOutputActual = (arr) => {
             const totalCost = arr.reduce((sum, d) => sum + (d.coal_cost_total || 0), 0);
@@ -1055,6 +1104,7 @@
                     const diffEl = document.getElementById(`kpi-${id}-diff`);
                     if (diffEl) { diffEl.innerText = '-'; diffEl.className = 'text-xs mt-1 font-medium'; }
                 });
+                document.getElementById('boiler-efficiency-summary').innerText = '-';
                 return;
             }
 
@@ -1087,6 +1137,10 @@
             document.getElementById('kpi-avg-coal-price').innerText = fmt(avgCoalPrice, 2);
             document.getElementById('kpi-avg-coal-water').innerText = fmt(avgCoalWater, 2);
             document.getElementById('kpi-coal-steam-cost').innerText = fmt(coalSteamCost, 2);
+            const boilerEfficiency = calcBoilerEfficiency(currentData);
+            document.getElementById('boiler-efficiency-summary').innerText = boilerEfficiency === null
+                ? '-'
+                : `${fmt(boilerEfficiency, 2)}%`;
 
             document.getElementById('kpi-steam-total').innerText = fmt(avgSteamTotal, 1);
             document.getElementById('kpi-steam-isowa').innerText = fmt(avgSteamIsowa, 1);
@@ -1276,6 +1330,53 @@
             const chartData = getChartData();
             const labels = chartData.map(d => d.periodLabel || d.dateStr);
             renderSummaryCharts();
+
+            const dailyEfficiencyData = getDailyBoilerEfficiencyData();
+            createOrUpdateChart('chartBoilerEfficiency', {
+                type: 'line',
+                data: {
+                    labels: dailyEfficiencyData.map(d => d.periodLabel),
+                    datasets: [
+                        {
+                            label: 'ประสิทธิภาพเตาบอยเลอร์ (%)',
+                            data: dailyEfficiencyData.map(d => d.efficiency),
+                            borderColor: '#a3e635',
+                            backgroundColor: 'rgba(163, 230, 53, 0.15)',
+                            fill: true,
+                            tension: 0.25,
+                            borderWidth: 3,
+                            pointRadius: 3,
+                            spanGaps: false
+                        },
+                        {
+                            label: `เป้าหมาย ${TARGET_BOILER_EFFICIENCY}%`,
+                            data: dailyEfficiencyData.map(() => TARGET_BOILER_EFFICIENCY),
+                            borderColor: THEME.target.solid,
+                            borderDash: [6, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            datalabels: { display: false }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: darkGrid },
+                        y: { grid: darkGrid, beginAtZero: true, suggestedMax: 100, title: { display: true, text: 'ประสิทธิภาพ (%)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.dataset.label}: ${context.raw === null ? 'ไม่มีข้อมูล' : `${Number(context.raw).toFixed(2)}%`}`
+                            }
+                        }
+                    }
+                }
+            });
 
             // Chart 1: Steam Usage (Line)
             createOrUpdateChart('chartSteam', {
