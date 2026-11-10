@@ -450,9 +450,14 @@
                         <p class="text-xs text-slate-400 mt-2">ถ่าน AR3800 (LHV 15,909.84 kJ/kg) · ไอน้ำ 8 bar · น้ำป้อน 90°C</p>
                         <p class="text-xs text-slate-500 mt-1">ประสิทธิภาพ = ไอน้ำ (ตัน) × 1,000 × (2,768 − 376) ÷ [ถ่านจริง (kg) × 15,909.84] × 100</p>
                     </div>
-                    <div class="text-sm text-right">
+                    <div class="text-sm sm:text-right">
                         <span class="text-slate-400">ประสิทธิภาพช่วงที่เลือก</span>
-                        <span id="boiler-efficiency-summary" class="block text-xl font-bold text-lime-400">-</span>
+                        <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 sm:justify-end">
+                            <span class="text-xs text-slate-300">รวม <strong id="boiler-efficiency-summary" class="text-base text-lime-400">-</strong></span>
+                            <span class="text-xs text-slate-300">ISOWA <strong id="boiler-efficiency-isowa" class="text-base text-lime-400">-</strong></span>
+                            <span class="text-xs text-slate-300">BHS <strong id="boiler-efficiency-bhs" class="text-base text-lime-400">-</strong></span>
+                            <span class="text-xs text-slate-300">YUELI <strong id="boiler-efficiency-yueli" class="text-base text-lime-400">-</strong></span>
+                        </div>
                         <span class="text-xs text-slate-500">เป้าหมาย 80%</span>
                     </div>
                 </div>
@@ -662,7 +667,7 @@
             Object.values(chartInstances).forEach(chart => {
                 if (!chart) return;
                 chart.data.datasets.forEach(dataset => {
-                    const lbl = dataset.label.toUpperCase();
+                    const lbl = (dataset.label || '').toUpperCase();
                     if (machine === 'total' && !dataset.totalOnly && lbl.includes('TOTAL')) {
                         dataset.hidden = !isVisible;
                     }
@@ -934,6 +939,7 @@
                             timeValue: dObj.getTime(),
                             steam_total: steam_t, steam_isowa: steam_i, steam_bhs: steam_b, steam_yueli: steam_y,
                             steam_output_total: [steamIsowaTotal, steamBhsTotal, steamYueliTotal].reduce((sum, value) => sum + (value || 0), 0),
+                            steam_output_isowa: steamIsowaTotal, steam_output_bhs: steamBhsTotal, steam_output_yueli: steamYueliTotal,
                             coal_usage_isowa: coalUsageIsowa, coal_usage_bhs: coalUsageBhs, coal_usage_yueli: coalUsageYueli,
                             coal_cost_total: cost_t,
                             cw_total: cw_t, cw_isowa: cw_i, cw_bhs: cw_b, cw_yueli: cw_y,
@@ -1026,6 +1032,14 @@
                 / (coalKg * COAL_LHV_KJ_KG)) * 100;
         };
 
+        const calcMachineBoilerEfficiency = (arr, machine) => {
+            const steamKg = arr.reduce((sum, row) => sum + (row[`steam_output_${machine}`] || 0), 0) * STEAM_KG_PER_TON;
+            const coalKg = arr.reduce((sum, row) => sum + (row[`coal_usage_${machine}`] > 0 ? row[`coal_usage_${machine}`] : 0), 0);
+            if (steamKg <= 0 || coalKg <= 0) return null;
+            return (steamKg * (STEAM_ENTHALPY_KJ_KG - FEEDWATER_ENTHALPY_KJ_KG)
+                / (coalKg * COAL_LHV_KJ_KG)) * 100;
+        };
+
         function getDailyBoilerEfficiencyData() {
             const dailyGroups = new Map();
             currentData.forEach(row => {
@@ -1034,10 +1048,13 @@
                 dailyGroups.get(dayKey).push(row);
             });
 
-            return Array.from(dailyGroups.values()).map(rows => ({
-                periodLabel: rows[0].dateStr,
-                efficiency: calcBoilerEfficiency(rows)
-            }));
+            return Array.from(dailyGroups.values()).map(rows => {
+                const dayData = { periodLabel: rows[0].dateStr };
+                ['isowa', 'bhs', 'yueli'].forEach(machine => {
+                    dayData[machine] = calcMachineBoilerEfficiency(rows, machine);
+                });
+                return dayData;
+            });
         }
 
         const calcBahtOutputActual = (arr) => {
@@ -1104,7 +1121,8 @@
                     const diffEl = document.getElementById(`kpi-${id}-diff`);
                     if (diffEl) { diffEl.innerText = '-'; diffEl.className = 'text-xs mt-1 font-medium'; }
                 });
-                document.getElementById('boiler-efficiency-summary').innerText = '-';
+                ['boiler-efficiency-summary', 'boiler-efficiency-isowa', 'boiler-efficiency-bhs', 'boiler-efficiency-yueli']
+                    .forEach(id => { document.getElementById(id).innerText = '-'; });
                 return;
             }
 
@@ -1141,6 +1159,12 @@
             document.getElementById('boiler-efficiency-summary').innerText = boilerEfficiency === null
                 ? '-'
                 : `${fmt(boilerEfficiency, 2)}%`;
+            ['isowa', 'bhs', 'yueli'].forEach(machine => {
+                const efficiency = calcMachineBoilerEfficiency(currentData, machine);
+                document.getElementById(`boiler-efficiency-${machine}`).innerText = efficiency === null
+                    ? '-'
+                    : `${fmt(efficiency, 2)}%`;
+            });
 
             document.getElementById('kpi-steam-total').innerText = fmt(avgSteamTotal, 1);
             document.getElementById('kpi-steam-isowa').innerText = fmt(avgSteamIsowa, 1);
@@ -1338,14 +1362,54 @@
                     labels: dailyEfficiencyData.map(d => d.periodLabel),
                     datasets: [
                         {
-                            label: 'ประสิทธิภาพเตาบอยเลอร์ (%)',
-                            data: dailyEfficiencyData.map(d => d.efficiency),
-                            borderColor: '#a3e635',
-                            backgroundColor: 'rgba(163, 230, 53, 0.15)',
-                            fill: true,
-                            tension: 0.25,
+                            label: 'ISOWA (%)',
+                            data: dailyEfficiencyData.map(d => d.isowa),
+                            borderColor: '#38bdf8',
+                            backgroundColor: '#38bdf8',
+                            borderDash: [],
+                            pointStyle: 'circle',
+                            pointBackgroundColor: '#0f172a',
+                            pointBorderColor: '#38bdf8',
+                            pointBorderWidth: 2,
+                            fill: false,
+                            tension: 0,
                             borderWidth: 3,
-                            pointRadius: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'BHS (%)',
+                            data: dailyEfficiencyData.map(d => d.bhs),
+                            borderColor: '#fb923c',
+                            backgroundColor: '#fb923c',
+                            borderDash: [8, 4],
+                            pointStyle: 'rectRot',
+                            pointBackgroundColor: '#0f172a',
+                            pointBorderColor: '#fb923c',
+                            pointBorderWidth: 2,
+                            fill: false,
+                            tension: 0,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'YUELI (%)',
+                            data: dailyEfficiencyData.map(d => d.yueli),
+                            borderColor: '#e879f9',
+                            backgroundColor: '#e879f9',
+                            borderDash: [2, 4],
+                            pointStyle: 'triangle',
+                            pointBackgroundColor: '#0f172a',
+                            pointBorderColor: '#e879f9',
+                            pointBorderWidth: 2,
+                            fill: false,
+                            tension: 0,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
                             spanGaps: false
                         },
                         {
@@ -1368,7 +1432,7 @@
                         y: { grid: darkGrid, beginAtZero: true, suggestedMax: 100, title: { display: true, text: 'ประสิทธิภาพ (%)' } }
                     },
                     plugins: {
-                        legend: { position: 'bottom' },
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 18 } },
                         tooltip: {
                             callbacks: {
                                 label: context => `${context.dataset.label}: ${context.raw === null ? 'ไม่มีข้อมูล' : `${Number(context.raw).toFixed(2)}%`}`
